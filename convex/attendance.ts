@@ -71,6 +71,7 @@ export const mark = mutation({
     },
     handler: async (ctx, args) => {
         const user = await getAuthUser(ctx);
+        if (!user) throw new Error("Unauthorized");
 
         // Only leaders can mark attendance
         if (!isLeader(user)) {
@@ -171,9 +172,9 @@ export const getDailyAttendance = query({
             let ministryName = "General";
             if (r.eventId) {
                 const event = await ctx.db.get(r.eventId);
-                if (event) {
+                if (event && event.ministryId) {
                     const ministry = await ctx.db.get(event.ministryId);
-                    if (ministry) ministryName = ministry.name;
+                    if (ministry) ministryName = ministry.name as string;
                 }
             } else if (r.serviceId) {
                 const service = await ctx.db.get(r.serviceId);

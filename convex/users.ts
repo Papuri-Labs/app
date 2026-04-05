@@ -168,6 +168,7 @@ export const getNewcomersAndUnassigned = query({
     args: {},
     handler: async (ctx) => {
         const user = await getAuthUser(ctx);
+        if (!user) throw new Error("Unauthorized");
 
         // Only leaders and admins can access this
         if (!isLeader(user)) {
@@ -203,6 +204,7 @@ export const updateUserRole = mutation({
     },
     handler: async (ctx, args) => {
         const user = await getAuthUser(ctx);
+        if (!user) throw new Error("Unauthorized");
         if (user.role !== "admin") throw new Error("Unauthorized");
 
         await ctx.db.patch(args.userId, { role: args.role as any });
@@ -326,6 +328,7 @@ export const toggleFinanceAccess = mutation({
     args: { userId: v.id("users"), isFinance: v.boolean() },
     handler: async (ctx, args) => {
         const user = await getAuthUser(ctx);
+        if (!user) throw new Error("Unauthorized");
         if (user.role !== "admin") throw new Error("Unauthorized");
 
         await ctx.db.patch(args.userId, { isFinance: args.isFinance });
@@ -342,6 +345,7 @@ export const createOfflineUser = mutation({
     },
     handler: async (ctx, args) => {
         const user = await getAuthUser(ctx);
+        if (!user) throw new Error("Unauthorized");
         if (user.role !== "admin" && user.role !== "leader") {
             throw new Error("Unauthorized");
         }
@@ -383,6 +387,7 @@ export const updateUser = mutation({
     handler: async (ctx, args) => {
         const { userId, ...updates } = args;
         const user = await getAuthUser(ctx);
+        if (!user) throw new Error("Unauthorized");
         if (user.role !== "admin" && user.role !== "leader") {
             throw new Error("Unauthorized");
         }

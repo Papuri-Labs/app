@@ -40,6 +40,7 @@ export const createEvent = mutation({
     },
     handler: async (ctx, args) => {
         const user = await getAuthUser(ctx);
+        if (!user) throw new Error("Unauthorized");
         if (!isLeader(user)) throw new Error("Unauthorized");
 
         const eventId = await ctx.db.insert("events", {
@@ -74,6 +75,7 @@ export const updateEvent = mutation({
     },
     handler: async (ctx, args) => {
         const user = await getAuthUser(ctx);
+        if (!user) throw new Error("Unauthorized");
         const event = await ctx.db.get(args.id);
         if (!event) throw new Error("Event not found");
 
@@ -98,6 +100,7 @@ export const deleteEvent = mutation({
     },
     handler: async (ctx, args) => {
         const user = await getAuthUser(ctx);
+        if (!user) throw new Error("Unauthorized");
         const event = await ctx.db.get(args.id);
         if (!event) return;
 

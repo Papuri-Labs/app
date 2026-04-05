@@ -36,6 +36,7 @@ export const createBulletin = mutation({
     },
     handler: async (ctx, args) => {
         const user = await getAuthUser(ctx);
+        if (!user) throw new Error("Unauthorized");
 
         // Only leaders can create bulletins
         if (!isLeader(user)) {
@@ -77,6 +78,7 @@ export const updateBulletin = mutation({
     },
     handler: async (ctx, args) => {
         const user = await getAuthUser(ctx);
+        if (!user) throw new Error("Unauthorized");
         const bulletin = await ctx.db.get(args.id);
 
         if (!bulletin) throw new Error("Bulletin not found");
@@ -106,6 +108,7 @@ export const deleteBulletin = mutation({
     },
     handler: async (ctx, args) => {
         const user = await getAuthUser(ctx);
+        if (!user) throw new Error("Unauthorized");
         const bulletin = await ctx.db.get(args.id);
 
         if (!bulletin) return;
@@ -157,6 +160,7 @@ export const createAnnouncement = mutation({
     },
     handler: async (ctx, args) => {
         const user = await getAuthUser(ctx);
+        if (!user) throw new Error("Unauthorized");
 
         // Only leaders can create announcements
         if (!isLeader(user)) {
@@ -199,6 +203,7 @@ export const updateAnnouncement = mutation({
     },
     handler: async (ctx, args) => {
         const user = await getAuthUser(ctx);
+        if (!user) throw new Error("Unauthorized");
         const announcement = await ctx.db.get(args.id);
 
         if (!announcement) throw new Error("Announcement not found");
@@ -228,6 +233,7 @@ export const deleteAnnouncement = mutation({
     },
     handler: async (ctx, args) => {
         const user = await getAuthUser(ctx);
+        if (!user) throw new Error("Unauthorized");
         const announcement = await ctx.db.get(args.id);
 
         if (!announcement) return;

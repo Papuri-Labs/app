@@ -1,10 +1,12 @@
 import { action, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import { getDefaultOrganizationId } from "./permissions";
 
 export const sync = action({
     args: {},
-    handler: async (ctx) => {
+    returns: v.any(),
+    handler: async (ctx): Promise<any> => {
         const clerkKey = process.env.CLERK_SECRET_KEY;
         if (!clerkKey) throw new Error("Missing CLERK_SECRET_KEY");
 
@@ -36,6 +38,8 @@ export const updateDbFromClerk = internalMutation({
         let createdCount = 0;
         let deactivatedCount = 0;
 
+        const organizationId = await getDefaultOrganizationId(ctx);
+
         for (const u of args.users) {
             clerkUserIds.add(u.id);
             const email = u.email_addresses[0]?.email_address || "";
@@ -61,17 +65,18 @@ export const updateDbFromClerk = internalMutation({
                     // Implementation: u.public_metadata.role usually exists if set.
                     // If undefined in Clerk, default is "member".
                     // We'll update it.
-                    role: role as string,
+                    role: role as any,
                     isActive: true
                 });
                 updatedCount++;
             } else {
                 await ctx.db.insert("users", {
+                    organizationId,
                     userId: u.id,
                     name,
                     email,
                     birthday,
-                    role: role as string,
+                    role: role as any,
                     ministryIds: [],
                     isActive: true
                 });
