@@ -32,7 +32,7 @@ export default function MemberDashboard() {
   const { user } = useAuth();
   const logUIEvent = useMutation(api.logs.logUIEvent);
   const [selectedGiving, setSelectedGiving] = useState<any>(null);
-  const givingOptions = useQuery(api.giving.list) || [];
+  const givingOptions = useQuery(api.giving_options.list) || [];
 
   // Real data fetching
   const events = useQuery(api.events.list) || [];

@@ -19,7 +19,7 @@ export default function NewcomerDashboard() {
   const onboardingSteps = useQuery(api.onboarding.listSteps) || [];
   const userProgress = useQuery(api.onboarding.getUserProgress) || [];
   const services = useQuery(api.services.list) || [];
-  const givingOptions = useQuery(api.giving.list) || [];
+  const givingOptions = useQuery(api.giving_options.list) || [];
   const bulletins = useQuery(api.bulletins.listBulletins) || [];
   const recentPhotos = useQuery(api.media.getRecentPhotos, { limit: 4 }) || [];
   const completeStepMutation = useMutation(api.onboarding.completeStep);
