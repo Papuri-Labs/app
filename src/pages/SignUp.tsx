@@ -11,7 +11,7 @@ export default function SignUp() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 sm:p-8 gradient-mesh relative">
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/3 via-transparent to-accent/3" />
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/3 via-transparent to-accent/3 pointer-events-none" />
       <div className="w-full max-w-md relative flex flex-col items-center">
 
         <div className="flex items-center gap-3 mb-8 justify-center">

@@ -9,17 +9,44 @@ import { Id } from "./_generated/dataModel";
  * In single-church mode, there's only one organization
  * In multi-tenant mode, this would get the user's organization
  */
-async function getDefaultOrganization(ctx: QueryCtx | MutationCtx): Promise<Id<"organizations">> {
+/**
+ * Helper function to get or create an organization by slug
+ */
+async function getOrCreateOrganization(ctx: MutationCtx, slug: string): Promise<Id<"organizations">> {
     const org = await ctx.db
         .query("organizations")
-        .withIndex("by_slug", (q) => q.eq("slug", "my-church"))
+        .withIndex("by_slug", (q) => q.eq("slug", slug))
         .first();
 
-    if (!org) {
-        throw new Error("Default organization not found. Please run the migration script.");
+    if (org) {
+        return org._id;
     }
 
-    return org._id;
+    // Auto-create if not found (Self-Healing)
+    const name = slug
+        .split("-")
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+
+    const organizationId = await ctx.db.insert("organizations", {
+        name: name,
+        slug: slug,
+        plan: "free",
+        status: "active",
+        createdAt: Date.now(),
+    });
+
+    // Initialize default settings for the new organization
+    await ctx.db.insert("settings", {
+        organizationId,
+        inactiveAbsences: 4,
+        promoteAttendance: 8,
+        followUpAbsences: 2,
+        welcomeTitle: `Welcome to ${name}`,
+        welcomeMessage: "We are glad to have you with us!",
+    } as any);
+
+    return organizationId;
 }
 
 export const syncUser = mutation({
@@ -28,6 +55,7 @@ export const syncUser = mutation({
         name: v.string(),
         email: v.string(),
         role: v.string(),
+        orgSlug: v.string(),
         avatar: v.optional(v.string()),
         tracing: v.object(logArgs),
     },
@@ -58,8 +86,8 @@ export const syncUser = mutation({
             return existingUser._id;
         }
 
-        // Get the default organization for new users
-        const organizationId = await getDefaultOrganization(ctx);
+        // Get or create the organization based on the provided slug
+        const organizationId = await getOrCreateOrganization(ctx, args.orgSlug);
 
         const newUserId = await ctx.db.insert("users", {
             organizationId,

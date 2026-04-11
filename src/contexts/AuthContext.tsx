@@ -79,62 +79,96 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   });
 
   const syncUser = useMutation(api.users.syncUser);
+  const syncAttempted = React.useRef<string | null>(null);
 
-  // Query user data from Convex to get ministry names
+  // Query user data from Convex
   const convexUser = useQuery(
     api.users.getUser,
     clerkUser ? { userId: clerkUser.id } : "skip"
   );
 
+  // 1. Handle Syncing (Triggered once per sign-in)
   useEffect(() => {
     if (isSignedIn && clerkUser) {
-      // Map Clerk user to our app's user structure
-      const role: UserRole = (clerkUser.publicMetadata.role as UserRole) || "newcomer";
+      const pathParts = window.location.pathname.split("/");
+      const orgSlug = pathParts[1] || "my-church";
+      const reservedKeywords = ["login", "signup", "onboarding", "profile", "unauthorized"];
+      const isReserved = reservedKeywords.includes(orgSlug.toLowerCase());
 
-      // Sync user to Convex
-      syncUser({
-        userId: clerkUser.id,
+      if (syncAttempted.current !== clerkUser.id && !isReserved) {
+        console.log(`[AuthContext] Initiating sync for user: ${clerkUser.id} on org: ${orgSlug}`);
+        syncAttempted.current = clerkUser.id;
+        const role = (clerkUser.publicMetadata.role as UserRole) || "newcomer";
+
+        syncUser({
+          userId: clerkUser.id,
+          name: clerkUser.fullName || clerkUser.username || "User",
+          email: clerkUser.primaryEmailAddress?.emailAddress || "",
+          role: role,
+          orgSlug: orgSlug,
+          avatar: clerkUser.imageUrl,
+          tracing: getTracing(),
+        }).catch((err) => {
+          console.error("[AuthContext] Sync failed:", err);
+          syncAttempted.current = null;
+        });
+      }
+    } else if (!isSignedIn) {
+      syncAttempted.current = null;
+    }
+  }, [isSignedIn, clerkUser?.id]); // Only depend on ID stability
+
+  // 2. Handle User State Calculation (Triggered by data arrivals)
+  useEffect(() => {
+    if (!isSignedIn || !clerkUser) {
+      if (user !== null) {
+        console.log("[AuthContext] Clearing user state (signed out)");
+        setUser(null);
+      }
+      return;
+    }
+
+    // Determine the most accurate data available
+    const role = (clerkUser.publicMetadata.role as UserRole) || "newcomer";
+    
+    let nextUser: User;
+    if (convexUser) {
+      nextUser = {
+        id: clerkUser.id,
+        _id: convexUser._id,
+        organizationId: convexUser.organizationId,
+        name: convexUser.name,
+        email: convexUser.email,
+        role: convexUser.role as UserRole,
+        avatar: clerkUser.imageUrl,
+        ministryIds: convexUser.ministryIds,
+        ministryNames: convexUser.ministryNames || [],
+        address: convexUser.address,
+        birthday: convexUser.birthday,
+        gender: convexUser.gender,
+        contactNumber: convexUser.contactNumber,
+        isFinance: convexUser.isFinance,
+        socials: convexUser.socials,
+      };
+    } else {
+      nextUser = {
+        id: clerkUser.id,
         name: clerkUser.fullName || clerkUser.username || "User",
         email: clerkUser.primaryEmailAddress?.emailAddress || "",
         role: role,
         avatar: clerkUser.imageUrl,
-        tracing: getTracing(),
-      }).catch((err) => console.error("Failed to sync user:", err));
-
-      // Use Convex user data if available (with ministry names), otherwise use Clerk data
-      if (convexUser) {
-        setUser({
-          id: clerkUser.id,
-          _id: convexUser._id,
-          organizationId: convexUser.organizationId,
-          name: convexUser.name,
-          email: convexUser.email,
-          role: convexUser.role as UserRole,
-          avatar: clerkUser.imageUrl,
-          ministryIds: convexUser.ministryIds,
-          ministryNames: convexUser.ministryNames || [],
-          address: convexUser.address,
-          birthday: convexUser.birthday,
-          gender: convexUser.gender,
-          contactNumber: convexUser.contactNumber,
-          isFinance: convexUser.isFinance,
-          socials: convexUser.socials,
-        });
-      } else {
-        setUser({
-          id: clerkUser.id,
-          name: clerkUser.fullName || clerkUser.username || "User",
-          email: clerkUser.primaryEmailAddress?.emailAddress || "",
-          role: role,
-          avatar: clerkUser.imageUrl,
-          ministryIds: [],
-          ministryNames: [],
-        });
-      }
-    } else {
-      setUser(null);
+        ministryIds: [],
+        ministryNames: [],
+      };
     }
-  }, [isSignedIn, clerkUser, convexUser]);
+
+    // Shallow equality check to prevent redundant re-renders
+    const hasChanged = JSON.stringify(user) !== JSON.stringify(nextUser);
+    if (hasChanged) {
+      console.log("[AuthContext] Updating user state", nextUser.email);
+      setUser(nextUser);
+    }
+  }, [isSignedIn, clerkUser?.id, clerkUser?.imageUrl, convexUser]);
 
   const login = async () => {
     // This is now handled by Clerk's UI components typically, 
