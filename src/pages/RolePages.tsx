@@ -19,7 +19,7 @@ import { EventDialog } from "@/components/EventDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { useMemo, useState, useEffect } from "react";
-import { useNavigate, Link, Navigate } from "react-router-dom";
+import { useNavigate, Link, Navigate, useParams } from "react-router-dom";
 import {
   Calendar,
   BookOpen,
@@ -233,18 +233,18 @@ export function NewcomerOnboardingPage() {
 }
 
 export function AboutChurchPage() {
+  const { orgSlug } = useParams<{ orgSlug: string }>();
   const { user } = useAuth();
-  const leaders = useQuery(api.users.listLeaders) || [];
+  const leaders = useQuery(api.users.listLeaders, { orgSlug }) || [];
 
   const organization = useQuery(api.organizations.get, user?.organizationId ? { organizationId: user.organizationId as Id<"organizations"> } : "skip");
-  const settings = useQuery(api.settings.get);
+  const settings = useQuery(api.settings.get, { orgSlug });
 
   // Guest queries
-  const publicOrg = useQuery(api.organizations.getPublic, !user ? { slug: "my-church" } : "skip");
-  const publicSettings = useQuery(api.settings.getPublic, (!user && publicOrg) ? { organizationId: publicOrg._id } : "skip");
+  const publicOrg = useQuery(api.organizations.getPublic, !user ? { slug: orgSlug || "my-church" } : "skip");
 
   const displayOrg = user ? organization : publicOrg;
-  const displaySettings = user ? settings : publicSettings;
+  const displaySettings = settings;
 
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 5;
@@ -590,7 +590,8 @@ export function SystemStatsPage() {
 }
 
 export function ServiceSchedulePage() {
-  const serviceSchedule = useQuery(api.services.list) || [];
+  const { orgSlug } = useParams<{ orgSlug: string }>();
+  const serviceSchedule = useQuery(api.services.list, { orgSlug }) || [];
 
   return (
     <Layout>
@@ -852,8 +853,9 @@ export function AnnouncementsPage() {
 }
 
 export function GivingPage() {
+  const { orgSlug } = useParams<{ orgSlug: string }>();
   const { user } = useAuth();
-  const givingOptions = useQuery(api.giving_options.list) || [];
+  const givingOptions = useQuery(api.giving_options.list, { orgSlug }) || [];
   const transactions = useQuery(api.givingTransactions.listByUser, user?._id ? {} : "skip");
   const [selectedGiving, setSelectedGiving] = useState<any>(null);
 

@@ -3,14 +3,30 @@ import { query, mutation } from "./_generated/server";
 import { getAuthUser } from "./permissions";
 
 export const get = query({
-    args: { organizationId: v.optional(v.id("organizations")) },
+    args: { 
+        organizationId: v.optional(v.id("organizations")),
+        slug: v.optional(v.string())
+    },
     handler: async (ctx, args) => {
         const user = await getAuthUser(ctx);
         if (!user) return null;
 
-        // Use provided ID or fallback to user's organizationID
-        const orgId = args.organizationId || user.organizationId;
+        // Admin Isolation: Admins always stay in their own org
+        if (user.role === "admin") {
+            return await ctx.db.get(user.organizationId);
+        }
 
+        // Slug context for non-admins
+        if (args.slug) {
+            const org = await ctx.db
+                .query("organizations")
+                .withIndex("by_slug", (q) => q.eq("slug", args.slug!))
+                .first();
+            if (org) return org;
+        }
+
+        // Fallback to user's organizationID
+        const orgId = args.organizationId || user.organizationId;
         if (!orgId) return null;
 
         return await ctx.db.get(orgId);

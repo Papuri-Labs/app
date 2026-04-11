@@ -3,10 +3,20 @@ import { v } from "convex/values";
 import { getAuthUser, getDefaultOrganizationId } from "./permissions";
 
 export const list = query({
-    args: {},
-    handler: async (ctx) => {
+    args: { orgSlug: v.optional(v.string()) },
+    handler: async (ctx, args) => {
         const user = await getAuthUser(ctx);
-        const organizationId = user ? user.organizationId : await getDefaultOrganizationId(ctx);
+        let organizationId = user?.organizationId;
+
+        if (!organizationId && args.orgSlug) {
+            const org = await ctx.db
+                .query("organizations")
+                .withIndex("by_slug", (q) => q.eq("slug", args.orgSlug!))
+                .first();
+            organizationId = org?._id;
+        }
+
+        if (!organizationId) return [];
 
         return await ctx.db
             .query("services")

@@ -11,17 +11,20 @@ import { GivingDialog } from "@/components/GivingDialog";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { useParams } from "react-router-dom";
 
 export default function NewcomerDashboard() {
+  const { orgSlug } = useParams<{ orgSlug: string }>();
   const { user } = useAuth();
   const [selectedGiving, setSelectedGiving] = useState<any>(null);
-  const settings = useQuery(api.settings.get);
-  const onboardingSteps = useQuery(api.onboarding.listSteps) || [];
+  
+  const settings = useQuery(api.settings.get, { orgSlug });
+  const onboardingSteps = useQuery(api.onboarding.listSteps, { orgSlug }) || [];
   const userProgress = useQuery(api.onboarding.getUserProgress) || [];
-  const services = useQuery(api.services.list) || [];
-  const givingOptions = useQuery(api.giving_options.list) || [];
-  const bulletins = useQuery(api.bulletins.listBulletins) || [];
-  const recentPhotos = useQuery(api.media.getRecentPhotos, { limit: 4 }) || [];
+  const services = useQuery(api.services.list, { orgSlug }) || [];
+  const givingOptions = useQuery(api.giving_options.list, { orgSlug }) || [];
+  const bulletins = useQuery(api.bulletins.listBulletins, { orgSlug }) || [];
+  const recentPhotos = useQuery(api.media.getRecentPhotos, { limit: 4, orgSlug }) || [];
   const completeStepMutation = useMutation(api.onboarding.completeStep);
 
   const completedStepIds = new Set(userProgress.map((p: any) => p.stepId));

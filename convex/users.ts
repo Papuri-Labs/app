@@ -86,7 +86,7 @@ export const syncUser = mutation({
             return existingUser._id;
         }
 
-        // Get or create the organization based on the provided slug
+        // Get or create the organization based on the provided slug (only for new users)
         const organizationId = await getOrCreateOrganization(ctx, args.orgSlug);
 
         const newUserId = await ctx.db.insert("users", {
@@ -307,10 +307,20 @@ export const internalDeactivateUser = internalMutation({
 });
 // Export list of leaders for the About page
 export const listLeaders = query({
-    args: {},
-    handler: async (ctx) => {
+    args: { orgSlug: v.optional(v.string()) },
+    handler: async (ctx, args) => {
         const user = await getAuthUser(ctx);
-        const organizationId = user ? user.organizationId : await getDefaultOrganizationId(ctx);
+        let organizationId = user?.organizationId;
+
+        if (!organizationId && args.orgSlug) {
+            const org = await ctx.db
+                .query("organizations")
+                .withIndex("by_slug", (q) => q.eq("slug", args.orgSlug!))
+                .first();
+            organizationId = org?._id;
+        }
+
+        if (!organizationId) return [];
 
         const leaders = await ctx.db
             .query("users")

@@ -3,14 +3,29 @@ import { v } from "convex/values";
 import { getAuthUser } from "./permissions";
 
 export const get = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { orgSlug: v.optional(v.string()) },
+  handler: async (ctx, args) => {
     const user = await getAuthUser(ctx);
-    if (!user) return null;
+    let organizationId = user?.organizationId;
+
+    // Admin rule: Always stay in own org context
+    if (user?.role === "admin") {
+      organizationId = user.organizationId;
+    } 
+    // Newcomer/Guest rule: Prioritize URL slug if available
+    else if (args.orgSlug) {
+      const org = await ctx.db
+        .query("organizations")
+        .withIndex("by_slug", (q) => q.eq("slug", args.orgSlug!))
+        .first();
+      organizationId = org?._id;
+    }
+
+    if (!organizationId) return null;
 
     const settings = await ctx.db
       .query("settings")
-      .withIndex("by_organization", (q) => q.eq("organizationId", user.organizationId))
+      .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
       .first();
     return settings;
   },

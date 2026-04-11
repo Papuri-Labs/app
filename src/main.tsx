@@ -17,8 +17,8 @@ createRoot(document.getElementById("root")!).render(
 		signInUrl="/login"
 		signUpUrl="/signup"
 		afterSignOutUrl="/login"
-		signInFallbackRedirectUrl="/dashboard"
-		signUpFallbackRedirectUrl="/dashboard"
+		signInFallbackRedirectUrl="/my-church/dashboard"
+		signUpFallbackRedirectUrl="/my-church/dashboard"
 	>
 		<ConvexProviderWithClerk client={convex} useAuth={useAuth}>
 			<App />

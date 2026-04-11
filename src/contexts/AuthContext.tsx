@@ -60,6 +60,46 @@ export const useAuth = () => {
   return ctx;
 };
 
+/** All app route segment names that must NOT be interpreted as organization slugs */
+const RESERVED_ROUTE_KEYWORDS = [
+  "login", "signup", "onboarding", "profile", "unauthorized",
+  "dashboard", "about-church", "schedule", "events", "bulletins",
+  "bible-reading", "announcements", "giving", "ministry-stats",
+  "manage-events", "manage-bulletins", "members", "attendance",
+  "follow-ups", "prayer-requests", "assignments", "gallery",
+  "reports", "system-stats", "manage-users", "onboarding-maintenance",
+  "schedule-maintenance", "giving-maintenance", "ministries", "roles",
+  "settings", "record-giving", "transaction-history", "giving-reports",
+];
+
+/** Extract the org slug from the current URL, falling back to "my-church" */
+function getOrgSlugFromUrl(): string {
+  const pathParts = window.location.pathname.split("/");
+  const slug = pathParts[1] || "my-church";
+  const effective = RESERVED_ROUTE_KEYWORDS.includes(slug) ? "my-church" : slug;
+  // Persist so login/signup pages can recover it even after Clerk redirects
+  if (effective !== "my-church") {
+    sessionStorage.setItem("orgSlug", effective);
+  }
+  return effective;
+}
+
+/** Read slug from Clerk's redirect_url param or sessionStorage */
+export function getPersistedOrgSlug(): string {
+  // Clerk appends ?redirect_url=... when redirecting unauthenticated users
+  const params = new URLSearchParams(window.location.search);
+  const redirectUrl = params.get("redirect_url") || params.get("redirect") || "";
+  if (redirectUrl) {
+    const parts = decodeURIComponent(redirectUrl).split("/");
+    const slugFromRedirect = parts[1] || "";
+    if (slugFromRedirect && !RESERVED_ROUTE_KEYWORDS.includes(slugFromRedirect)) {
+      sessionStorage.setItem("orgSlug", slugFromRedirect);
+      return slugFromRedirect;
+    }
+  }
+  return sessionStorage.getItem("orgSlug") || "my-church";
+}
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const { isSignedIn, signOut } = useClerkAuth();
   const { user: clerkUser } = useUser();
@@ -90,13 +130,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // 1. Handle Syncing (Triggered once per sign-in)
   useEffect(() => {
     if (isSignedIn && clerkUser) {
-      const pathParts = window.location.pathname.split("/");
-      const orgSlug = pathParts[1] || "my-church";
-      const reservedKeywords = ["login", "signup", "onboarding", "profile", "unauthorized"];
-      const isReserved = reservedKeywords.includes(orgSlug.toLowerCase());
+      const effectiveSlug = getOrgSlugFromUrl(); // also saves to sessionStorage
 
-      if (syncAttempted.current !== clerkUser.id && !isReserved) {
-        console.log(`[AuthContext] Initiating sync for user: ${clerkUser.id} on org: ${orgSlug}`);
+      if (syncAttempted.current !== clerkUser.id) {
+        console.log(`[AuthContext] Initiating sync for user: ${clerkUser.id} on org: ${effectiveSlug}`);
         syncAttempted.current = clerkUser.id;
         const role = (clerkUser.publicMetadata.role as UserRole) || "newcomer";
 
@@ -105,7 +142,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           name: clerkUser.fullName || clerkUser.username || "User",
           email: clerkUser.primaryEmailAddress?.emailAddress || "",
           role: role,
-          orgSlug: orgSlug,
+          orgSlug: effectiveSlug,
           avatar: clerkUser.imageUrl,
           tracing: getTracing(),
         }).catch((err) => {
@@ -179,8 +216,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = async () => {
-    await signOut();
+    // Capture current orgSlug before signing out so we redirect to the right login page
+    const slug = getOrgSlugFromUrl();
     setUser(null);
+    await signOut({ redirectUrl: `/${slug}/login` });
   };
 
   const switchRole = (role: UserRole) => {

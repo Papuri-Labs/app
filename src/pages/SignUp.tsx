@@ -1,12 +1,19 @@
 import { SignUp as ClerkSignUp, useAuth } from "@clerk/clerk-react";
 import { Church } from "lucide-react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useParams } from "react-router-dom";
+import { getPersistedOrgSlug } from "@/contexts/AuthContext";
 
 export default function SignUp() {
   const { isSignedIn } = useAuth();
+  const { orgSlug: paramSlug } = useParams<{ orgSlug?: string }>();
+
+  // Use URL param if it's a real org slug, otherwise recover from sessionStorage/redirect_url
+  const slug = paramSlug && !["login", "signup", "dashboard"].includes(paramSlug)
+    ? paramSlug
+    : getPersistedOrgSlug();
 
   if (isSignedIn) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={`/${slug}/dashboard`} replace />;
   }
 
   return (
@@ -24,7 +31,10 @@ export default function SignUp() {
           </div>
         </div>
 
-        <ClerkSignUp />
+        <ClerkSignUp
+          signInUrl={`/${slug}/login`}
+          forceRedirectUrl={`/${slug}/dashboard`}
+        />
       </div>
     </div>
   );
