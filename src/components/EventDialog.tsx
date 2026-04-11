@@ -15,6 +15,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { getTracing } from "@/lib/tracing";
+import { getLocalSysDate } from "@/lib/utils";
 
 interface Event {
     _id: string;
@@ -70,7 +71,7 @@ export function EventDialog({ isOpen, onClose, eventToEdit, defaultMinistryId }:
         } else {
             // Reset for create
             setTitle("");
-            setDate(new Date().toISOString().split('T')[0]);
+            setDate(getLocalSysDate());
             setTime("");
             setType("General");
             setStage("Planning");
@@ -149,13 +150,17 @@ export function EventDialog({ isOpen, onClose, eventToEdit, defaultMinistryId }:
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="title">Event Title</Label>
+                        <Label htmlFor="title" className="flex items-center gap-1">
+                            Event Title <span className="text-destructive font-bold">*</span>
+                        </Label>
                         <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="e.g. Sunday Service" />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="date">Date</Label>
+                            <Label htmlFor="date" className="flex items-center gap-1">
+                                Date <span className="text-destructive font-bold">*</span>
+                            </Label>
                             <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
                         </div>
                         <div className="space-y-2">

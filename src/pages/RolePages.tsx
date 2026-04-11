@@ -60,7 +60,7 @@ import { ImageUpload } from "@/components/ImageUpload";
 import { getTracing } from "@/lib/tracing";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { openExternalLink } from "@/lib/utils";
+import { openExternalLink, getLocalSysDate } from "@/lib/utils";
 
 import { GalleryPage } from "./GalleryPage";
 
@@ -972,7 +972,7 @@ export function MinistryStatsPage() {
     m.ministryIds?.some(id => ministryIds.includes(id))
   );
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalSysDate();
   const upcomingEvents = events.filter(e => e.date >= today && ministryIds.includes(e.ministryId));
 
   const totalMembers = ministryMembers.length;
@@ -1546,9 +1546,12 @@ export function ReportsPage() {
   const { user } = useAuth();
   const members = useQuery(api.users.getMemberDirectory) || [];
   const events = useQuery(api.events.list) || [];
+  const services = useQuery(api.services.list) || [];
+  const [attendanceDate, setAttendanceDate] = useState(getLocalSysDate());
+  const isLeaderUser = user?.role === "leader" || user?.role === "admin";
+  const dailyAttendance = useQuery(api.attendance.getDailyAttendance, isLeaderUser ? { date: attendanceDate } : "skip") || [];
   const ministryIds = user?.ministryIds ?? [];
 
-  const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
   const [attendanceEvent, setAttendanceEvent] = useState<string>("");
   const [attendanceFormat, setAttendanceFormat] = useState<"csv" | "pdf">("csv");
   const [memberFormat, setMemberFormat] = useState<"csv" | "pdf">("csv");
@@ -1563,17 +1566,36 @@ export function ReportsPage() {
   // Filter events for selected date
   const eventsForDate = events.filter(event => event.date === attendanceDate);
 
+  // Filter services for the day of the week
+  const dayOfWeek = new Date(attendanceDate + "T00:00:00").toLocaleDateString('en-US', { weekday: 'long' });
+  const servicesForDate = services.filter(s => s.day === dayOfWeek);
+
   const handleExportAttendance = () => {
     if (attendanceFormat === "csv") {
       // CSV Export logic
       const headers = ["Name", "Email", "Status", "Date", "Event"];
-      const rows = ministryMembers.map(m => [
-        m.name,
-        m.email,
-        "Present", // This would come from actual attendance data
-        attendanceDate,
-        attendanceEvent ? eventsForDate.find(e => e._id === attendanceEvent)?.title || "" : "General"
-      ]);
+      const rows = ministryMembers.map(m => {
+        const record = dailyAttendance.find((r: any) => {
+          const isMember = r.memberId === m._id;
+          let isEventMatch = false;
+          if (!attendanceEvent) {
+            isEventMatch = !r.eventId && !r.serviceId;
+          } else if (attendanceEvent.startsWith("event:")) {
+            isEventMatch = r.eventId === attendanceEvent.replace("event:", "");
+          } else if (attendanceEvent.startsWith("service:")) {
+            isEventMatch = r.serviceId === attendanceEvent.replace("service:", "");
+          }
+          return isMember && isEventMatch;
+        });
+
+        return [
+          m.name,
+          m.email,
+          record ? (record.status === "present" ? "Present" : "Absent") : "Not Marked",
+          attendanceDate,
+          attendanceEvent ? eventsForDate.find(e => e._id === attendanceEvent)?.title || "" : "General"
+        ];
+      });
 
       const csvContent = [headers, ...rows].map(row => row.join(",")).join("\n");
       const blob = new Blob([csvContent], { type: "text/csv" });
@@ -1679,7 +1701,7 @@ export function ReportsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="att-event">Select Event (Optional)</Label>
+                  <Label htmlFor="att-event">Select Event or Service (Optional)</Label>
                   <select
                     id="att-event"
                     value={attendanceEvent}
@@ -1687,9 +1709,20 @@ export function ReportsPage() {
                     className="w-full px-3 py-2 rounded-md border bg-background text-sm"
                   >
                     <option value="">All / General Attendance</option>
-                    {eventsForDate.map(event => (
-                      <option key={event._id} value={event._id}>{event.title}</option>
-                    ))}
+                    {servicesForDate.length > 0 && (
+                      <optgroup label="Global Services">
+                        {servicesForDate.map(service => (
+                          <option key={service._id} value={`service:${service._id}`}>{service.name}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {eventsForDate.length > 0 && (
+                      <optgroup label="Ministry Events">
+                        {eventsForDate.map(event => (
+                          <option key={event._id} value={`event:${event._id}`}>{event.title}</option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                 </div>
 
@@ -1879,7 +1912,7 @@ export function AttendancePage() {
   const services = useQuery(api.services.list) || [];
 
   // State management
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(getLocalSysDate());
   const [selectedEvent, setSelectedEvent] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"mark" | "saved" | "newcomers">("mark");
   const [newcomerAttendance, setNewcomerAttendance] = useState<Record<string, "present" | "absent" | "">>({});
@@ -1889,6 +1922,12 @@ export function AttendancePage() {
   const isLeaderUser = user?.role === "leader" || user?.role === "admin";
   // Fetch confirmed attendance for the date
   const dailyAttendance = useQuery(api.attendance.getDailyAttendance, isLeaderUser ? { date: selectedDate } : "skip") || [];
+
+  // Reset local attendance state when date or event changes
+  useEffect(() => {
+    setAttendance({});
+    setNewcomerAttendance({});
+  }, [selectedDate, selectedEvent]);
 
   const setStatus = (memberId: string, status: "present" | "absent") => {
     setAttendance((prev) => ({ ...prev, [memberId]: prev[memberId] === status ? "" : status }));
@@ -1914,33 +1953,34 @@ export function AttendancePage() {
 
   const uniqueDailyAttendance = useMemo(() => {
     const seen = new Set<string>();
-    return dailyAttendance.filter(r => {
+    const unique = dailyAttendance.filter(r => {
       const idStr = r._id.toString();
       if (seen.has(idStr)) return false;
       seen.add(idStr);
       return true;
     });
-  }, [dailyAttendance]);
+
+    // Filter by selected event matching the Mark Attendance filter
+    return unique.filter(r => {
+      if (!selectedEvent) return !r.eventId && !r.serviceId;
+      if (selectedEvent.startsWith("event:")) {
+        return r.eventId === selectedEvent.replace("event:", "");
+      }
+      if (selectedEvent.startsWith("service:")) {
+        return r.serviceId === selectedEvent.replace("service:", "");
+      }
+      return true;
+    });
+  }, [dailyAttendance, selectedEvent]);
 
   // Create map for easy lookup, filtered by currently selected event/service
   const confirmedAttendance = useMemo(() => {
     const map: Record<string, any> = {};
     uniqueDailyAttendance.forEach((r: any) => {
-      let isMatch = false;
-      if (!selectedEvent) {
-        isMatch = !r.eventId && !r.serviceId;
-      } else if (selectedEvent.startsWith("event:")) {
-        isMatch = r.eventId === selectedEvent.replace("event:", "");
-      } else if (selectedEvent.startsWith("service:")) {
-        isMatch = r.serviceId === selectedEvent.replace("service:", "");
-      }
-
-      if (isMatch) {
-        map[r.memberId] = r;
-      }
+      map[r.memberId] = r;
     });
     return map;
-  }, [uniqueDailyAttendance, selectedEvent]);
+  }, [uniqueDailyAttendance]);
 
   // Filter members not yet saved/confirmed for THIS activity
   const unsavedMembers = uniqueMembers.filter(m => !confirmedAttendance[m._id]);
@@ -1960,6 +2000,10 @@ export function AttendancePage() {
   const unsavedNewcomers = uniqueNewcomers.filter(n => !confirmedAttendance[n._id]);
 
   const handleSaveAttendance = async () => {
+    if (!selectedEvent) {
+      alert("Please select an event or service first.");
+      return;
+    }
     setSaving(true);
     try {
       for (const [memberId, status] of Object.entries(attendance)) {
@@ -1993,6 +2037,10 @@ export function AttendancePage() {
   };
 
   const handleFinalAttendance = async () => {
+    if (!selectedEvent) {
+      alert("Please select an event or service first.");
+      return;
+    }
     if (!confirm("This will mark all unmarked members as absent and save all attendance. Continue?")) {
       return;
     }
@@ -2113,14 +2161,17 @@ export function AttendancePage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="event">Event or Service (Optional)</Label>
+                <Label htmlFor="event" className="flex items-center gap-1">
+                  Event or Service <span className="text-destructive font-bold">*</span>
+                </Label>
                 <select
                   id="event"
                   value={selectedEvent}
                   onChange={(e) => setSelectedEvent(e.target.value)}
-                  className="w-full px-3 py-2 rounded-md border bg-background text-sm"
+                  className={`w-full px-3 py-2 rounded-md border text-sm ${!selectedEvent ? 'border-destructive ring-1 ring-destructive/20' : 'bg-background'}`}
+                  required
                 >
-                  <option value="">No specific event</option>
+                  <option value="">-- SELECT REQUIRED --</option>
                   {servicesForDate.length > 0 && (
                     <optgroup label="Global Services">
                       {servicesForDate.map(service => (
@@ -2163,7 +2214,7 @@ export function AttendancePage() {
           >
             <span className="hidden sm:inline">Saved Attendance</span>
             <span className="sm:hidden">Saved</span>
-            <span className="ml-1">({dailyAttendance.length})</span>
+            <span className="ml-1">({uniqueDailyAttendance.length})</span>
           </button>
           <button
             onClick={() => setActiveTab("newcomers")}

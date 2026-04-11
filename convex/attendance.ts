@@ -186,6 +186,8 @@ export const getDailyAttendance = query({
             return {
                 _id: r._id,
                 memberId: r.memberId,
+                eventId: r.eventId,
+                serviceId: r.serviceId,
                 name: member?.name || "Unknown",
                 email: member?.email || "",
                 status: r.status,
