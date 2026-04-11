@@ -680,7 +680,7 @@ export function EventsPage() {
           gradient="gradient-member"
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+        <div className="grid grid-cols-1 gap-4 md:gap-6">
           <DashboardCard title="Featured Events" description="This month" icon={<Calendar className="h-5 w-5 text-primary" />} gradient="gradient-member">
             <div className="space-y-3">
               {filteredEvents.length === 0 ? (
@@ -722,11 +722,7 @@ export function EventsPage() {
                 </div>
               </div>
             </div>
-          )}   <DashboardCard title="Volunteer Opportunities" icon={<Users className="h-5 w-5 text-primary" />} gradient="gradient-member">
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">No volunteer opportunities yet.</p>
-            </div>
-          </DashboardCard>
+          )}
         </div>
       </div>
     </Layout>
@@ -1074,7 +1070,7 @@ export function ManageEventsPage() {
           gradient="gradient-leader"
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+        <div className="grid grid-cols-1 gap-4 md:gap-6">
           <DashboardCard title="Event Pipeline" icon={<Calendar className="h-5 w-5 text-primary" />} gradient="gradient-leader">
             <div className="space-y-3">
               <div className="flex justify-between items-center mb-4">
@@ -1133,9 +1129,6 @@ export function ManageEventsPage() {
             </div>
           </DashboardCard>
 
-          <DashboardCard title="Planning Checklist" icon={<ClipboardList className="h-5 w-5 text-primary" />} gradient="gradient-leader">
-            <p className="text-sm text-muted-foreground">No checklist items yet.</p>
-          </DashboardCard>
         </div>
       </div>
     </Layout>

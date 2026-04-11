@@ -43,20 +43,22 @@ export const createEvent = mutation({
         if (!user) throw new Error("Unauthorized");
         if (!isLeader(user)) throw new Error("Unauthorized");
 
+        const { tracing, ...eventData } = args;
+
         const eventId = await ctx.db.insert("events", {
             organizationId: user.organizationId,
-            ...args,
+            ...eventData,
             rsvpCount: 0,
-            status: args.status || "Draft",
+            status: eventData.status || "Draft",
         });
 
-        await logAction(ctx, user, args.tracing, {
+        await logAction(ctx, user, tracing, {
             action: "EVENT_CREATE",
             resourceType: "event",
             resourceId: eventId.toString(),
-            details: `Created event: ${args.title}`,
+            details: `Created event: ${eventData.title}`,
             status: "success",
-            metadata: { title: args.title, date: args.date },
+            metadata: { title: eventData.title, date: eventData.date },
         });
     },
 });
