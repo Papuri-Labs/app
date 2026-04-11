@@ -3,14 +3,24 @@ import { mutation, query } from "./_generated/server";
 import { getAuthUser } from "./permissions";
 
 export const list = query({
-    args: {},
-    handler: async (ctx) => {
+    args: { orgSlug: v.optional(v.string()) },
+    handler: async (ctx, args) => {
         const user = await getAuthUser(ctx);
-        if (!user) return [];
+        let organizationId = user?.organizationId;
+
+        if (!organizationId && args.orgSlug) {
+            const org = await ctx.db
+                .query("organizations")
+                .withIndex("by_slug", (q) => q.eq("slug", args.orgSlug!))
+                .first();
+            organizationId = org?._id;
+        }
+
+        if (!organizationId) return [];
 
         return await ctx.db
             .query("giving_options")
-            .withIndex("by_organization", (q) => q.eq("organizationId", user.organizationId))
+            .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
             .collect();
     },
 });

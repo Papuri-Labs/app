@@ -129,8 +129,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { orgSlug: urlSlug } = useParams();
   const orgSlug = urlSlug || "my-church";
 
-  const organization = useQuery(api.organizations.get, user?.organizationId ? { organizationId: user.organizationId as Id<"organizations"> } : "skip");
-  const settings = useQuery(api.settings.get);
+  const organization = useQuery(api.organizations.get, { slug: urlSlug });
+  const settings = useQuery(api.settings.get, { orgSlug: urlSlug });
 
   // Guest queries
   const publicOrg = useQuery(api.organizations.getPublic, !user ? { slug: orgSlug } : "skip");

@@ -4,14 +4,24 @@ import { getAuthUser } from "./permissions";
 
 // List all onboarding steps, sorted by order
 export const listSteps = query({
-    args: {},
-    handler: async (ctx) => {
+    args: { orgSlug: v.optional(v.string()) },
+    handler: async (ctx, args) => {
         const user = await getAuthUser(ctx);
-        if (!user) return [];
+        let organizationId = user?.organizationId;
+
+        if (!organizationId && args.orgSlug) {
+            const org = await ctx.db
+                .query("organizations")
+                .withIndex("by_slug", (q) => q.eq("slug", args.orgSlug!))
+                .first();
+            organizationId = org?._id;
+        }
+
+        if (!organizationId) return [];
 
         const steps = await ctx.db
             .query("onboarding_steps")
-            .withIndex("by_organization", (q) => q.eq("organizationId", user.organizationId))
+            .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
             .collect();
         return steps.sort((a, b) => a.order - b.order);
     },

@@ -17,19 +17,20 @@ import { useState, useEffect } from "react";
 import { getTracing } from "../lib/tracing";
 import {
     Image as ImageIcon, Plus, Heart, MessageSquare,
-    MoreVertical, Trash2, Send, Globe, Users, Loader2, AlertCircle, Edit2,
     ChevronLeft, ChevronRight
 } from "lucide-react";
 import { toast } from "sonner";
+import { useParams } from "react-router-dom";
 import { Id } from "../../convex/_generated/dataModel";
 import { ImageUpload } from "@/components/ImageUpload";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { PageHeader } from "./RolePages";
 
 export function GalleryPage() {
+    const { orgSlug } = useParams<{ orgSlug: string }>();
     const { user } = useAuth();
     const { viewMode } = useViewMode();
-    const albums = useQuery(api.media.getAlbums);
+    const albums = useQuery(api.media.getAlbums, { orgSlug });
     const ministries = useQuery(api.ministries.list) || [];
     const createAlbum = useMutation(api.media.createAlbum);
 
