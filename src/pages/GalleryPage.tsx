@@ -28,7 +28,9 @@ import {
     Loader2,
     Edit2,
     Globe,
-    Send
+    Send,
+    ChevronLeft,
+    MessageSquare
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation } from "convex/react";
@@ -48,7 +50,8 @@ export function GalleryPage() {
     const { viewMode } = useViewMode();
     const albums = useQuery(api.media.getAlbums, { orgSlug });
     const ministries = useQuery(api.ministries.list) || [];
-    const createAlbum = useMutation(api.media.createAlbum);
+    const createAlbum = useMutation(api.media_actions.createAlbumScoped);
+    const updateAlbum = useMutation(api.media_actions.updateAlbumScoped);
 
     const [selectedAlbumId, setSelectedAlbumId] = useState<Id<"albums"> | null>(null);
     const [isCreateAlbumOpen, setIsCreateAlbumOpen] = useState(false);
@@ -56,8 +59,6 @@ export function GalleryPage() {
     const [newAlbum, setNewAlbum] = useState({ title: "", description: "", ministryId: "global" });
     const [editingAlbum, setEditingAlbum] = useState<any>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
-
-    const updateAlbum = useMutation(api.media.updateAlbum);
 
     // Role & Permission checks
     const isAdmin = user?.role === "admin";
@@ -87,6 +88,7 @@ export function GalleryPage() {
                 description: newAlbum.description || undefined,
                 isGlobal: newAlbum.ministryId === "global",
                 ministryId: newAlbum.ministryId === "global" ? undefined : newAlbum.ministryId as Id<"ministries">,
+                orgSlug,
                 tracing: getTracing(),
             });
             toast.success("Album created successfully");
@@ -114,6 +116,7 @@ export function GalleryPage() {
                 description: editingAlbum.description,
                 ministryId: editingAlbum.ministryId === "global" ? undefined : editingAlbum.ministryId as Id<"ministries"> | "global",
                 isGlobal: editingAlbum.ministryId === "global",
+                orgSlug,
                 tracing: getTracing(),
             });
             toast.success("Album updated successfully");
@@ -279,14 +282,15 @@ export function GalleryPage() {
 }
 
 function AlbumGrid({ albums, onSelectAlbum, isAdmin, isLeader, user, onEditAlbum }: { albums: any[], onSelectAlbum: (id: Id<"albums">) => void, isAdmin: boolean, isLeader: boolean, user: any, onEditAlbum: (album: any) => void }) {
-    const deleteAlbum = useMutation(api.media.deleteAlbum);
+    const { orgSlug } = useParams<{ orgSlug: string }>();
+    const deleteAlbum = useMutation(api.media_actions.deleteAlbumScoped);
 
     const handleDeleteAlbum = async (e: React.MouseEvent, id: Id<"albums">, title: string) => {
         e.stopPropagation();
         if (!confirm(`Are you sure you want to delete the album "${title}"? This will delete all photos inside.`)) return;
 
         try {
-            await deleteAlbum({ id, tracing: getTracing() });
+            await deleteAlbum({ id, orgSlug, tracing: getTracing() });
             toast.success("Album deleted");
         } catch (error) {
             toast.error("Failed to delete album");
@@ -382,17 +386,19 @@ function AlbumGrid({ albums, onSelectAlbum, isAdmin, isLeader, user, onEditAlbum
 
 function AlbumDetailView({ albumId, onBack, isLeader, isAdmin }: { albumId: Id<"albums">, onBack: () => void, isLeader: boolean, isAdmin: boolean }) {
     const { orgSlug } = useParams<{ orgSlug: string }>();
+    const { user } = useAuth();
     const album = useQuery(api.media.getAlbums, { orgSlug })?.find(a => a._id === albumId);
     const photos = useQuery(api.media.getPhotos, { albumId });
     const generateUploadUrl = useMutation(api.media.generateUploadUrl);
-    const addPhoto = useMutation(api.media.addPhoto);
-    const deletePhoto = useMutation(api.media.deletePhoto);
+    const addPhoto = useMutation(api.media_actions.addPhotoScoped);
+    const deletePhoto = useMutation(api.media_actions.deletePhotoScoped);
 
     const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
     const [isUploading, setIsUploading] = useState(false);
 
     // Strictly restrict management capabilities to leaders/admins
-    const canManageAlbum = (isAdmin || isLeader) && (isAdmin || (album?.ministryId && user?.ministryIds?.includes(album.ministryId)));
+    // Leaders can manage Global albums and albums in ministries they lead
+    const canManageAlbum = isAdmin || (isLeader && (album?.isGlobal || (album?.ministryId && user?.ministryIds?.includes(album.ministryId))));
 
     const handlePhotoSelected = async (file: File | null) => {
         if (!file) return;
@@ -410,6 +416,7 @@ function AlbumDetailView({ albumId, onBack, isLeader, isAdmin }: { albumId: Id<"
             await addPhoto({
                 albumId,
                 storageId,
+                orgSlug,
                 tracing: getTracing(),
             });
             toast.success("Photo added to album");
@@ -426,7 +433,7 @@ function AlbumDetailView({ albumId, onBack, isLeader, isAdmin }: { albumId: Id<"
         if (!confirm("Are you sure you want to delete this photo?")) return;
 
         try {
-            await deletePhoto({ id, tracing: getTracing() });
+            await deletePhoto({ id, orgSlug, tracing: getTracing() });
             toast.success("Photo deleted");
         } catch (error) {
             toast.error("Failed to delete photo");
@@ -501,8 +508,8 @@ function AlbumDetailView({ albumId, onBack, isLeader, isAdmin }: { albumId: Id<"
 
             {selectedPhoto && (
                 <PhotoModal
-                    photos={photos}
-                    currentIndex={photos.findIndex(p => p._id === selectedPhoto._id)}
+                    photos={photos || []}
+                    currentIndex={photos?.findIndex(p => p._id === selectedPhoto._id) || 0}
                     onClose={() => setSelectedPhoto(null)}
                     onNavigate={(photo) => setSelectedPhoto(photo)}
                     canManage={canManageAlbum}
@@ -521,11 +528,11 @@ function PhotoModal({ photos, currentIndex, onClose, canManage, onNavigate, albu
     onNavigate: (photo: any) => void,
     albumTitle: string
 }) {
+    const { orgSlug } = useParams<{ orgSlug: string }>();
     const photo = photos[currentIndex];
-    const { user } = useAuth();
-    const addComment = useMutation(api.media.addComment);
-    const reactToPhoto = useMutation(api.media.reactToPhoto);
-    const deletePhoto = useMutation(api.media.deletePhoto);
+    const addComment = useMutation(api.media_actions.addCommentScoped);
+    const reactToPhoto = useMutation(api.media_actions.reactToPhotoScoped);
+    const deletePhoto = useMutation(api.media_actions.deletePhotoScoped);
     const [comment, setComment] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -558,7 +565,7 @@ function PhotoModal({ photos, currentIndex, onClose, canManage, onNavigate, albu
 
     const handleReact = async () => {
         try {
-            await reactToPhoto({ photoId: photo._id, type: "heart", tracing: getTracing() });
+            await reactToPhoto({ photoId: photo._id, type: "heart", orgSlug, tracing: getTracing() });
         } catch (error) {
             console.error(error);
         }
@@ -567,7 +574,7 @@ function PhotoModal({ photos, currentIndex, onClose, canManage, onNavigate, albu
     const handleDelete = async () => {
         if (!confirm("Are you sure you want to delete this photo?")) return;
         try {
-            await deletePhoto({ id: photo._id, tracing: getTracing() });
+            await deletePhoto({ id: photo._id, orgSlug, tracing: getTracing() });
             toast.success("Photo deleted");
             onClose();
         } catch (error) {
@@ -579,7 +586,7 @@ function PhotoModal({ photos, currentIndex, onClose, canManage, onNavigate, albu
         if (!comment.trim()) return;
         setIsSubmitting(true);
         try {
-            await addComment({ photoId: photo._id, text: comment, tracing: getTracing() });
+            await addComment({ photoId: photo._id, text: comment, orgSlug, tracing: getTracing() });
             setComment("");
         } catch (error) {
             toast.error("Failed to add comment");

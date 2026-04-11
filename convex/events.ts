@@ -42,6 +42,7 @@ export const createEvent = mutation({
     },
     handler: async (ctx, args) => {
         const organizationId = await validateOrgAccess(ctx, args.orgSlug);
+        if (!organizationId) throw new Error("Could not resolve organization context");
         const user = await getAuthUser(ctx);
         if (!user) throw new Error("Unauthorized");
         if (!isLeader(user)) throw new Error("Unauthorized");

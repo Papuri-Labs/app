@@ -187,13 +187,13 @@ export default function NewcomerDashboard() {
                 </div>
               ) : (
                 recentPhotos.map((photo: any) => (
-                  <Link key={photo._id} to="/gallery" className="aspect-square rounded-lg overflow-hidden border border-white/10 hover:opacity-80 transition-opacity">
+                  <Link key={photo._id} to={`/${orgSlug}/gallery`} className="aspect-square rounded-lg overflow-hidden border border-white/10 hover:opacity-80 transition-opacity">
                     <img src={photo.url} alt="Memory" className="w-full h-full object-cover" />
                   </Link>
                 ))
               )}
             </div>
-            <Link to="/gallery">
+            <Link to={`/${orgSlug}/gallery`}>
               <Button variant="outline" size="sm" className="mt-3 w-full">Open Gallery</Button>
             </Link>
           </DashboardCard>
