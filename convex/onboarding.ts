@@ -1,21 +1,12 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { getAuthUser } from "./permissions";
+import { getAuthUser, validateOrgAccess } from "./permissions";
 
 // List all onboarding steps, sorted by order
 export const listSteps = query({
     args: { orgSlug: v.optional(v.string()) },
     handler: async (ctx, args) => {
-        const user = await getAuthUser(ctx);
-        let organizationId = user?.organizationId;
-
-        if (!organizationId && args.orgSlug) {
-            const org = await ctx.db
-                .query("organizations")
-                .withIndex("by_slug", (q) => q.eq("slug", args.orgSlug!))
-                .first();
-            organizationId = org?._id;
-        }
+        const organizationId = await validateOrgAccess(ctx, args.orgSlug);
 
         if (!organizationId) return [];
 
@@ -99,22 +90,25 @@ export const addStep = mutation({
     args: {
         title: v.string(),
         description: v.string(),
+        orgSlug: v.optional(v.string()), // Added for multi-tenant safety
     },
     handler: async (ctx, args) => {
+        const organizationId = await validateOrgAccess(ctx, args.orgSlug);
+        if (!organizationId) throw new Error("Could not resolve organization context");
         const user = await getAuthUser(ctx);
         if (!user) throw new Error("Unauthorized");
 
         // Get the highest order number for this organization
         const allSteps = await ctx.db
             .query("onboarding_steps")
-            .withIndex("by_organization", (q) => q.eq("organizationId", user.organizationId))
+            .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
             .collect();
         const maxOrder = allSteps.length > 0
             ? Math.max(...allSteps.map(s => s.order))
             : -1;
 
         return await ctx.db.insert("onboarding_steps", {
-            organizationId: user.organizationId,
+            organizationId,
             title: args.title,
             description: args.description,
             order: maxOrder + 1,

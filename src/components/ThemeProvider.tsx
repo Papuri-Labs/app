@@ -1,13 +1,23 @@
 import { ReactNode } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, RESERVED_ROUTE_KEYWORDS } from "@/contexts/AuthContext";
 import { Id } from "../../convex/_generated/dataModel";
-import { useParams } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const { orgSlug } = useParams();
+  const location = useLocation();
+
+  // Robust slug detection for components outside of <Routes>
+  const getSlugFromPath = () => {
+    const parts = location.pathname.split("/");
+    const slug = parts[1];
+    if (!slug || RESERVED_ROUTE_KEYWORDS.includes(slug)) return undefined;
+    return slug;
+  };
+
+  const orgSlug = getSlugFromPath();
 
   // Slug-aware settings: Prioritize the slug from the URL to ensure correct branding
   const settings = useQuery(api.settings.get, { orgSlug });

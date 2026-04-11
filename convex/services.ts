@@ -1,21 +1,11 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { getAuthUser, getDefaultOrganizationId } from "./permissions";
+import { getAuthUser, validateOrgAccess } from "./permissions";
 
 export const list = query({
     args: { orgSlug: v.optional(v.string()) },
     handler: async (ctx, args) => {
-        const user = await getAuthUser(ctx);
-        let organizationId = user?.organizationId;
-
-        if (!organizationId && args.orgSlug) {
-            const org = await ctx.db
-                .query("organizations")
-                .withIndex("by_slug", (q) => q.eq("slug", args.orgSlug!))
-                .first();
-            organizationId = org?._id;
-        }
-
+        const organizationId = await validateOrgAccess(ctx, args.orgSlug);
         if (!organizationId) return [];
 
         return await ctx.db
@@ -31,35 +21,47 @@ export const create = mutation({
         day: v.string(),
         time: v.string(),
         location: v.string(),
+        orgSlug: v.optional(v.string()), // Added for multi-tenant safety
     },
     handler: async (ctx, args) => {
+        const organizationId = await validateOrgAccess(ctx, args.orgSlug);
+        if (!organizationId) throw new Error("Organization not found. Please sync your account.");
+
         const user = await getAuthUser(ctx);
         if (!user) throw new Error("Unauthorized");
 
+        const { orgSlug, ...serviceData } = args;
+
         return await ctx.db.insert("services", {
-            organizationId: user.organizationId,
-            ...args,
+            organizationId,
+            ...serviceData,
         });
+    },
+});
+
+export const remove = mutation({
+    args: { id: v.id("services") },
+    handler: async (ctx, args) => {
+        const user = await getAuthUser(ctx);
+        if (!user || user.role !== "admin") throw new Error("Unauthorized");
+
+        await ctx.db.delete(args.id);
     },
 });
 
 export const update = mutation({
     args: {
         id: v.id("services"),
-        name: v.string(),
-        day: v.string(),
-        time: v.string(),
-        location: v.string(),
+        name: v.optional(v.string()),
+        day: v.optional(v.string()),
+        time: v.optional(v.string()),
+        location: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
-        const { id, ...updates } = args;
-        return await ctx.db.patch(id, updates);
-    },
-});
+        const user = await getAuthUser(ctx);
+        if (!user || user.role !== "admin") throw new Error("Unauthorized");
 
-export const deleteService = mutation({
-    args: { id: v.id("services") },
-    handler: async (ctx, args) => {
-        return await ctx.db.delete(args.id);
+        const { id, ...updates } = args;
+        await ctx.db.patch(id, updates);
     },
 });

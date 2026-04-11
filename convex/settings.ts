@@ -1,26 +1,12 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { getAuthUser } from "./permissions";
+import { getAuthUser, validateOrgAccess } from "./permissions";
 
 export const get = query({
   args: { orgSlug: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    const user = await getAuthUser(ctx);
-    let organizationId = user?.organizationId;
-
-    // Admin rule: Always stay in own org context
-    if (user?.role === "admin") {
-      organizationId = user.organizationId;
-    } 
-    // Newcomer/Guest rule: Prioritize URL slug if available
-    else if (args.orgSlug) {
-      const org = await ctx.db
-        .query("organizations")
-        .withIndex("by_slug", (q) => q.eq("slug", args.orgSlug!))
-        .first();
-      organizationId = org?._id;
-    }
-
+    const organizationId = await validateOrgAccess(ctx, args.orgSlug);
+    if (!organizationId) return null;
     if (!organizationId) return null;
 
     const settings = await ctx.db

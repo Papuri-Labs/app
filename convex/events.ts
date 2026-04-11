@@ -1,14 +1,15 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { getAuthUser, canManageMinistry, getUserMinistries, isLeader, getDefaultOrganizationId } from "./permissions";
+import { getAuthUser, canManageMinistry, getUserMinistries, isLeader, validateOrgAccess } from "./permissions";
 import { logAction, logArgs } from "./logs";
 
 export const list = query({
-    args: {},
-    handler: async (ctx) => {
+    args: { orgSlug: v.optional(v.string()) },
+    handler: async (ctx, args) => {
+        const organizationId = await validateOrgAccess(ctx, args.orgSlug);
+        if (!organizationId) return [];
+        
         const user = await getAuthUser(ctx);
-        const organizationId = user ? user.organizationId : await getDefaultOrganizationId(ctx);
-
         const ministries = getUserMinistries(user);
 
         const allEvents = await ctx.db
@@ -36,17 +37,20 @@ export const createEvent = mutation({
         stage: v.optional(v.string()),
         lead: v.optional(v.string()),
         status: v.optional(v.string()),
+        orgSlug: v.optional(v.string()), // Multi-tenant safety
         tracing: v.object(logArgs),
     },
     handler: async (ctx, args) => {
+        const organizationId = await validateOrgAccess(ctx, args.orgSlug);
+        if (!organizationId) throw new Error("Could not resolve organization context");
         const user = await getAuthUser(ctx);
         if (!user) throw new Error("Unauthorized");
         if (!isLeader(user)) throw new Error("Unauthorized");
 
-        const { tracing, ...eventData } = args;
+        const { tracing, orgSlug, ...eventData } = args;
 
         const eventId = await ctx.db.insert("events", {
-            organizationId: user.organizationId,
+            organizationId,
             ...eventData,
             rsvpCount: 0,
             status: eventData.status || "Draft",

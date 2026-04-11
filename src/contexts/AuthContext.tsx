@@ -32,6 +32,7 @@ interface User {
   birthday?: string;
   gender?: string;
   contactNumber?: string;
+  organizationSlug?: string;
   socials?: {
     facebook?: string;
     instagram?: string;
@@ -61,7 +62,7 @@ export const useAuth = () => {
 };
 
 /** All app route segment names that must NOT be interpreted as organization slugs */
-const RESERVED_ROUTE_KEYWORDS = [
+export const RESERVED_ROUTE_KEYWORDS = [
   "login", "signup", "onboarding", "profile", "unauthorized",
   "dashboard", "about-church", "schedule", "events", "bulletins",
   "bible-reading", "announcements", "giving", "ministry-stats",
@@ -69,7 +70,7 @@ const RESERVED_ROUTE_KEYWORDS = [
   "follow-ups", "prayer-requests", "assignments", "gallery",
   "reports", "system-stats", "manage-users", "onboarding-maintenance",
   "schedule-maintenance", "giving-maintenance", "ministries", "roles",
-  "settings", "record-giving", "transaction-history", "giving-reports",
+  "settings", "record-giving", "transaction-history", "giving-reports", "my-church",
 ];
 
 /** Extract the org slug from the current URL, falling back to "my-church" */
@@ -130,11 +131,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // 1. Handle Syncing (Triggered once per sign-in)
   useEffect(() => {
     if (isSignedIn && clerkUser) {
-      const effectiveSlug = getOrgSlugFromUrl(); // also saves to sessionStorage
+      // Prioritize Clerk Metadata as the Source of Truth, then the URL
+      const metadataSlug = clerkUser.publicMetadata?.orgSlug as string;
+      const urlSlug = getOrgSlugFromUrl();
+      const effectiveSlug = (metadataSlug && !RESERVED_ROUTE_KEYWORDS.includes(metadataSlug)) 
+        ? metadataSlug 
+        : urlSlug;
 
-      if (syncAttempted.current !== clerkUser.id) {
+      const syncKey = `${clerkUser.id}-${effectiveSlug}`;
+      if (syncAttempted.current !== syncKey) {
         console.log(`[AuthContext] Initiating sync for user: ${clerkUser.id} on org: ${effectiveSlug}`);
-        syncAttempted.current = clerkUser.id;
+        syncAttempted.current = syncKey;
         const role = (clerkUser.publicMetadata.role as UserRole) || "newcomer";
 
         syncUser({
@@ -168,6 +175,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Determine the most accurate data available
     const role = (clerkUser.publicMetadata.role as UserRole) || "newcomer";
     
+    // Determine the organization slug, prioritizing Clerk metadata as the definitive authority
+    const metadataSlug = clerkUser.publicMetadata?.orgSlug as string;
+    const finalOrgSlug = (metadataSlug && !RESERVED_ROUTE_KEYWORDS.includes(metadataSlug))
+      ? metadataSlug
+      : (convexUser?.organizationSlug || getOrgSlugFromUrl());
+
     let nextUser: User;
     if (convexUser) {
       nextUser = {
@@ -185,6 +198,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         gender: convexUser.gender,
         contactNumber: convexUser.contactNumber,
         isFinance: convexUser.isFinance,
+        organizationSlug: finalOrgSlug,
         socials: convexUser.socials,
       };
     } else {
@@ -194,6 +208,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         email: clerkUser.primaryEmailAddress?.emailAddress || "",
         role: role,
         avatar: clerkUser.imageUrl,
+        organizationSlug: finalOrgSlug,
         ministryIds: [],
         ministryNames: [],
       };
@@ -218,7 +233,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = async () => {
     // Capture current orgSlug before signing out so we redirect to the right login page
     const slug = getOrgSlugFromUrl();
-    setUser(null);
     await signOut({ redirectUrl: `/${slug}/login` });
   };
 
@@ -239,7 +253,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       value={{
         user,
         organizationId: user?.organizationId,
-        isAuthenticated: !!isSignedIn,
+        isAuthenticated: !!isSignedIn && !!user,
         login,
         logout,
         switchRole,

@@ -14,6 +14,7 @@ import type * as attendance from "../attendance.js";
 import type * as budgets from "../budgets.js";
 import type * as bulletins from "../bulletins.js";
 import type * as clerk from "../clerk.js";
+import type * as debug from "../debug.js";
 import type * as events from "../events.js";
 import type * as expenses from "../expenses.js";
 import type * as funds from "../funds.js";
@@ -23,6 +24,7 @@ import type * as giving_options from "../giving_options.js";
 import type * as ledger from "../ledger.js";
 import type * as logs from "../logs.js";
 import type * as media from "../media.js";
+import type * as media_actions from "../media_actions.js";
 import type * as migrations_001_add_organizations from "../migrations/001_add_organizations.js";
 import type * as ministries from "../ministries.js";
 import type * as onboarding from "../onboarding.js";
@@ -31,6 +33,7 @@ import type * as permissions from "../permissions.js";
 import type * as prayer_requests from "../prayer_requests.js";
 import type * as services from "../services.js";
 import type * as settings from "../settings.js";
+import type * as test_sync from "../test_sync.js";
 import type * as users from "../users.js";
 
 import type {
@@ -46,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   budgets: typeof budgets;
   bulletins: typeof bulletins;
   clerk: typeof clerk;
+  debug: typeof debug;
   events: typeof events;
   expenses: typeof expenses;
   funds: typeof funds;
@@ -55,6 +59,7 @@ declare const fullApi: ApiFromModules<{
   ledger: typeof ledger;
   logs: typeof logs;
   media: typeof media;
+  media_actions: typeof media_actions;
   "migrations/001_add_organizations": typeof migrations_001_add_organizations;
   ministries: typeof ministries;
   onboarding: typeof onboarding;
@@ -63,6 +68,7 @@ declare const fullApi: ApiFromModules<{
   prayer_requests: typeof prayer_requests;
   services: typeof services;
   settings: typeof settings;
+  test_sync: typeof test_sync;
   users: typeof users;
 }>;
 
