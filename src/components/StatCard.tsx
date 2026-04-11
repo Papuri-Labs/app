@@ -9,15 +9,21 @@ interface StatCardProps {
   icon: ReactNode;
   trend?: "up" | "down" | "neutral";
   className?: string;
+  gradient?: string;
+  valueClassName?: string;
 }
 
-export function StatCard({ label, value, change, icon, trend = "neutral", className }: StatCardProps) {
+export function StatCard({ label, value, change, icon, trend = "neutral", className, gradient, valueClassName }: StatCardProps) {
+  const iconBgClass = gradient === "gradient-newcomer" || gradient === "gradient-warm" 
+    ? "bg-accent/10" 
+    : "bg-primary/8";
+
   return (
     <Card className={cn("card-hover p-3 sm:p-5 glass-strong rounded-xl border-0", className)}>
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs sm:text-sm text-muted-foreground">{label}</p>
-          <p className="text-xl sm:text-2xl font-bold mt-1">{value}</p>
+          <p className={cn("text-xl sm:text-2xl font-bold mt-1", valueClassName)}>{value}</p>
           {change && (
             <p className={cn(
               "text-xs mt-1 font-medium",
@@ -29,7 +35,7 @@ export function StatCard({ label, value, change, icon, trend = "neutral", classN
             </p>
           )}
         </div>
-        <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl bg-primary/8 flex items-center justify-center icon-glow">
+        <div className={cn("h-9 w-9 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center icon-glow", iconBgClass)}>
           {icon}
         </div>
       </div>

@@ -19,9 +19,9 @@ export default function FinanceDashboard() {
         <Layout>
             <div className="space-y-6 animate-fade-in">
                 {/* Header */}
-                <div className="gradient-leader glass rounded-2xl p-6 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-48 h-48 rounded-full bg-success/8 -translate-y-1/2 translate-x-1/3 blur-3xl" />
-                    <h1 className="text-2xl font-bold mb-1 relative">Finance Dashboard</h1>
+                <div className="gradient-newcomer glass rounded-2xl p-6 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-48 h-48 rounded-full bg-accent/8 -translate-y-1/2 translate-x-1/3 blur-3xl" />
+                    <h1 className="text-2xl font-bold mb-1 relative font-outfit">Finance Dashboard</h1>
                     <p className="text-muted-foreground relative">
                         Manage giving and track contributions for {user?.ministryNames?.join(", ") || "your ministry"}
                     </p>
@@ -30,28 +30,30 @@ export default function FinanceDashboard() {
                 {/* Stats Cards */}
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                     <StatCard
-                        title="This Month"
+                        label="This Month"
                         value={`₱${stats?.totalThisMonth?.toLocaleString() || "0"}`}
                         icon={<Heart className="h-5 w-5 text-accent" />}
-                        gradient="gradient-member"
+                        gradient="gradient-newcomer"
+                        valueClassName="text-accent font-outfit"
                     />
                     <StatCard
-                        title="Total All Time"
+                        label="Total All Time"
                         value={`₱${stats?.totalAllTime?.toLocaleString() || "0"}`}
-                        icon={<TrendingUp className="h-5 w-5 text-success" />}
-                        gradient="gradient-leader"
+                        icon={<TrendingUp className="h-5 w-5 text-accent" />}
+                        gradient="gradient-newcomer"
+                        valueClassName="text-accent font-outfit"
                     />
                     <StatCard
-                        title="Transactions"
+                        label="Transactions"
                         value={stats?.transactionCount || 0}
-                        icon={<ClipboardList className="h-5 w-5 text-primary" />}
-                        gradient="gradient-member"
+                        icon={<ClipboardList className="h-5 w-5 text-accent" />}
+                        gradient="gradient-newcomer"
                     />
                     <StatCard
-                        title="Active Givers"
+                        label="Active Givers"
                         value={stats?.uniqueGivers || 0}
-                        icon={<Users className="h-5 w-5 text-primary" />}
-                        gradient="gradient-leader"
+                        icon={<Users className="h-5 w-5 text-accent" />}
+                        gradient="gradient-newcomer"
                     />
                 </div>
 
@@ -59,7 +61,7 @@ export default function FinanceDashboard() {
                 <DashboardCard
                     title="Quick Actions"
                     icon={<Heart className="h-5 w-5 text-accent" />}
-                    gradient="gradient-member"
+                    gradient="gradient-newcomer"
                 >
                     <div className="flex flex-wrap gap-3">
                         <Link to="/record-giving">
@@ -81,8 +83,8 @@ export default function FinanceDashboard() {
                 <DashboardCard
                     title="Recent Transactions"
                     description="Last 10 transactions recorded"
-                    icon={<ClipboardList className="h-5 w-5 text-primary" />}
-                    gradient="gradient-leader"
+                    icon={<ClipboardList className="h-5 w-5 text-accent" />}
+                    gradient="gradient-newcomer"
                 >
                     {!recentTransactions || recentTransactions.length === 0 ? (
                         <p className="text-sm text-muted-foreground text-center py-8">
@@ -102,7 +104,7 @@ export default function FinanceDashboard() {
                                         </p>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-sm font-bold text-success">
+                                        <p className="text-sm font-bold text-accent font-outfit">
                                             ₱{transaction.amount.toLocaleString()}
                                         </p>
                                     </div>

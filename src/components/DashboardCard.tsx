@@ -20,13 +20,16 @@ export function DashboardCard({ title, description, icon, children, className, g
     "gradient-admin": "gradient-bar-admin",
   };
   const barClass = gradient ? barGradientMap[gradient] || "gradient-header" : "";
+  const iconBgClass = gradient === "gradient-newcomer" || gradient === "gradient-warm"
+    ? "bg-accent/10"
+    : "bg-primary/8";
 
   return (
     <Card className={cn("card-hover glass-strong rounded-xl overflow-hidden border-0", className, onClick && "cursor-pointer")} onClick={onClick}>
       {gradient && <div className={cn("h-1", barClass)} />}
       <CardHeader className="flex flex-col sm:flex-row sm:items-center gap-3 pb-2">
         {icon && (
-          <div className="h-10 w-10 rounded-xl bg-primary/8 flex items-center justify-center shrink-0 icon-glow">
+          <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center shrink-0 icon-glow", iconBgClass)}>
             {icon}
           </div>
         )}
