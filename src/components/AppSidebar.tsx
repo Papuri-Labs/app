@@ -112,11 +112,11 @@ const roleLabels: Record<UserRole, string> = {
 };
 
 const roleColors: Record<UserRole, string> = {
-  newcomer: "bg-accent/10 text-accent",
-  member: "bg-primary/10 text-primary",
-  leader: "bg-success/10 text-success",
-  finance: "bg-blue-500/10 text-blue-500",
-  admin: "bg-destructive/10 text-destructive",
+  newcomer: "bg-accent/10 border border-accent/20 text-accent",
+  member: "bg-primary/10 border border-primary/20 text-primary",
+  leader: "bg-success/10 border border-success/20 text-success",
+  finance: "bg-blue-500/10 border border-blue-500/20 text-blue-500",
+  admin: "bg-destructive/10 border border-destructive/20 text-destructive",
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -198,7 +198,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     <Sidebar collapsible="icon" {...props} className="border-r border-border/10 glass-subtle animate-fade-in z-40">
       <SidebarHeader className="p-3 border-b border-border/30">
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-lg gradient-header flex items-center justify-center shadow-sm overflow-hidden">
+          <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center shadow-sm overflow-hidden">
             {displaySettings?.logoUrl ? (
               <img src={displaySettings.logoUrl} alt="Logo" className="h-full w-full object-cover" />
             ) : (
@@ -263,7 +263,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-primary/5 transition-all duration-200 group-data-[collapsible=icon]:justify-center">
                   <Avatar className="h-8 w-8">
-                    <AvatarFallback className="gradient-header text-primary-foreground text-xs font-medium">
+                    <AvatarFallback className="bg-primary text-primary-foreground text-xs font-medium">
                       {user.name.split(" ").map(n => n[0]).join("")}
                     </AvatarFallback>
                   </Avatar>
@@ -356,7 +356,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         ) : (
           <Button
             asChild
-            className="w-full gap-2 gradient-header text-primary-foreground group-data-[collapsible=icon]:p-0"
+            className="w-full gap-2 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors group-data-[collapsible=icon]:p-0"
           >
             <Link to={getSlugUrl("/login")}>
               <LogOut className="h-4 w-4 rotate-180" />
