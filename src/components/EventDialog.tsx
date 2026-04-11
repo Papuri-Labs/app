@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
     Dialog,
     DialogContent,
@@ -53,7 +53,9 @@ export function EventDialog({ isOpen, onClose, eventToEdit, defaultMinistryId }:
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const isAdmin = user?.role === "admin";
-    const userMinistries = ministries.filter(m => user?.ministryIds?.includes(m._id as any));
+    const userMinistries = useMemo(() => {
+        return ministries.filter(m => user?.ministryIds?.includes(m._id as any));
+    }, [ministries, user?.ministryIds]);
 
     useEffect(() => {
         if (eventToEdit) {
@@ -121,7 +123,7 @@ export function EventDialog({ isOpen, onClose, eventToEdit, defaultMinistryId }:
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[500px] glass-strong border-0 h-[85vh] flex flex-col">
+            <DialogContent className="sm:max-w-[500px] bg-background border h-[85vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>{eventToEdit ? "Edit Event" : "Create Event"}</DialogTitle>
                     <DialogDescription>
