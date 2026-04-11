@@ -1552,6 +1552,8 @@ export function ReportsPage() {
   const [attendanceEvent, setAttendanceEvent] = useState<string>("");
   const [attendanceFormat, setAttendanceFormat] = useState<"csv" | "pdf">("csv");
   const [memberFormat, setMemberFormat] = useState<"csv" | "pdf">("csv");
+  const [birthdayMonth, setBirthdayMonth] = useState<string>((new Date().getMonth() + 1).toString().padStart(2, '0'));
+  const [birthdayFormat, setBirthdayFormat] = useState<"csv" | "pdf">("csv");
 
   // Filter members under this leader's ministry
   const ministryMembers = members.filter(m =>
@@ -1611,6 +1613,39 @@ export function ReportsPage() {
     }
   };
 
+  const handleExportBirthdays = () => {
+    if (birthdayFormat === "csv") {
+      const filteredMembers = ministryMembers.filter(m => {
+        if (!m.birthday) return false;
+        // Handle YYYY-MM-DD or MM/DD/YYYY formats
+        const parts = m.birthday.includes("-") ? m.birthday.split("-") : m.birthday.split("/");
+        // Assuming YYYY-MM-DD, so month is at index 1
+        const monthPart = m.birthday.includes("-") ? parts[1] : parts[0]; 
+        return monthPart === birthdayMonth;
+      });
+
+      const headers = ["Name", "Email", "Contact", "Birthday", "Ministries"];
+      const rows = filteredMembers.map(m => [
+        `"${m.name}"`,
+        `"${m.email || ""}"`,
+        `"${m.contactNumber || ""}"`,
+        `"${m.birthday || ""}"`,
+        m.ministryIds?.length || 0
+      ]);
+
+      const csvContent = [headers, ...rows].map(row => row.join(",")).join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `birthdays_month_${birthdayMonth}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } else {
+      alert("PDF export coming soon!");
+    }
+  };
+
   return (
     <Layout>
       <div className="space-y-6 animate-fade-in">
@@ -1620,7 +1655,7 @@ export function ReportsPage() {
           gradient="gradient-leader"
         />
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
           {/* Attendance Export Card */}
           <Card className="glass-strong border-0 rounded-2xl">
             <CardHeader>
@@ -1737,6 +1772,82 @@ export function ReportsPage() {
                   onClick={handleExportMembers}
                 >
                   Export Members List
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Birthdays Export Card */}
+          <Card className="glass-strong border-0 rounded-2xl">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <Heart className="h-4 w-4 text-primary" /> Birthdays Export
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="bday-month">Select Month</Label>
+                  <select
+                    id="bday-month"
+                    value={birthdayMonth}
+                    onChange={(e) => setBirthdayMonth(e.target.value)}
+                    className="w-full px-3 py-2 rounded-md border bg-background text-sm"
+                  >
+                    <option value="01">January</option>
+                    <option value="02">February</option>
+                    <option value="03">March</option>
+                    <option value="04">April</option>
+                    <option value="05">May</option>
+                    <option value="06">June</option>
+                    <option value="07">July</option>
+                    <option value="08">August</option>
+                    <option value="09">September</option>
+                    <option value="10">October</option>
+                    <option value="11">November</option>
+                    <option value="12">December</option>
+                  </select>
+                </div>
+
+                <div className="p-4 rounded-xl glass-subtle">
+                  <p className="text-xs text-muted-foreground mb-1">Birthdays this Month</p>
+                  <p className="text-2xl font-bold text-primary">
+                    {ministryMembers.filter(m => {
+                      if (!m.birthday) return false;
+                      const parts = m.birthday.includes("-") ? m.birthday.split("-") : m.birthday.split("/");
+                      const monthPart = m.birthday.includes("-") ? parts[1] : parts[0]; 
+                      return monthPart === birthdayMonth;
+                    }).length}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Export Format</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant={birthdayFormat === "csv" ? "default" : "outline"}
+                      onClick={() => setBirthdayFormat("csv")}
+                      className="flex-1"
+                    >
+                      CSV
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={birthdayFormat === "pdf" ? "default" : "outline"}
+                      onClick={() => setBirthdayFormat("pdf")}
+                      className="flex-1"
+                    >
+                      PDF
+                    </Button>
+                  </div>
+                </div>
+
+                <Button
+                  className="w-full"
+                  onClick={handleExportBirthdays}
+                >
+                  Export Birthdays
                 </Button>
               </div>
             </CardContent>
