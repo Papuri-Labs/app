@@ -41,7 +41,6 @@ export const syncUser = mutation({
 
         if (existingUser) {
             await ctx.db.patch(existingUser._id, {
-                name: args.name,
                 email: args.email,
                 role: args.role as any,
                 isActive: true, // Reactivate if was soft-deleted
