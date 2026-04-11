@@ -114,7 +114,7 @@ const roleLabels: Record<UserRole, string> = {
 const roleColors: Record<UserRole, string> = {
   newcomer: "bg-accent/10 border border-accent/20 text-accent",
   member: "bg-primary/10 border border-primary/20 text-primary",
-  leader: "bg-success/10 border border-success/20 text-success",
+  leader: "bg-primary/10 border border-primary/20 text-primary",
   finance: "bg-blue-500/10 border border-blue-500/20 text-blue-500",
   admin: "bg-destructive/10 border border-destructive/20 text-destructive",
 };
@@ -236,8 +236,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       }}
                       className={`
                         mb-1 transition-all duration-200 rounded-lg hover:bg-muted/50
-                        ${location.pathname === item.url ?
-                          `bg-${effectiveRole === 'leader' ? 'success' : effectiveRole === 'finance' ? 'blue-500' : 'primary'}/10 text-${effectiveRole === 'leader' ? 'success' : effectiveRole === 'finance' ? 'blue-500' : 'primary'} font-medium` :
+                        ${location.pathname === getSlugUrl(item.url) ?
+                          'bg-primary/10 text-primary font-medium' :
                           'text-muted-foreground hover:text-foreground'}
                       `}
                     >
