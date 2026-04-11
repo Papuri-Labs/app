@@ -3,7 +3,7 @@ import { Layout } from "@/components/Layout";
 import { DashboardCard } from "@/components/DashboardCard";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Church, Calendar, Heart, BookOpen, Users, CheckCircle2, Bell, Image as ImageIcon } from "lucide-react";
+import { Church, Calendar, Heart, BookOpen, Users, CheckCircle2, Image as ImageIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { ComingSoonDialog } from "@/components/ComingSoonDialog";
 import { GivingDialog } from "@/components/GivingDialog";
@@ -23,7 +23,6 @@ export default function NewcomerDashboard() {
   const userProgress = useQuery(api.onboarding.getUserProgress) || [];
   const services = useQuery(api.services.list, { orgSlug }) || [];
   const givingOptions = useQuery(api.giving_options.list, { orgSlug }) || [];
-  const bulletins = useQuery(api.bulletins.listBulletins, { orgSlug }) || [];
   const recentPhotos = useQuery(api.media.getRecentPhotos, { limit: 4, orgSlug }) || [];
   const completeStepMutation = useMutation(api.onboarding.completeStep);
 
@@ -74,23 +73,6 @@ export default function NewcomerDashboard() {
                       <p className={`text-sm font-medium ${step.done ? "line-through text-muted-foreground" : ""}`}>{step.title}</p>
                       <p className="text-xs text-muted-foreground">{step.description}</p>
                     </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </DashboardCard>
-
-          {/* Notifications / Bulletins */}
-          <DashboardCard title="Notifications" description="Latest updates" icon={<Bell className="h-5 w-5 text-primary" />} gradient="gradient-newcomer">
-            <div className="space-y-3">
-              {bulletins.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No new notifications.</p>
-              ) : (
-                bulletins.slice(0, 3).map((b: any) => (
-                  <div key={b._id} className="p-3 rounded-xl glass-subtle border-l-4 border-primary">
-                    <p className="text-sm font-medium">{b.title}</p>
-                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{b.summary}</p>
-                    <span className="text-[10px] text-muted-foreground mt-2 block">{b.date}</span>
                   </div>
                 ))
               )}
