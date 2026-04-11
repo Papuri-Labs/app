@@ -11,6 +11,7 @@ import { BulletinDialog } from "@/components/BulletinDialog";
 import { RsvpDialog } from "@/components/RsvpDialog";
 import { AssignmentDialog } from "@/components/AssignmentDialog";
 import { getTracing } from "@/lib/tracing";
+import { getLocalSysDate } from "@/lib/utils";
 
 export default function LeaderDashboard() {
   const { user } = useAuth();
@@ -43,7 +44,7 @@ export default function LeaderDashboard() {
   );
 
   // Filter upcoming events
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalSysDate();
   const upcomingEvents = events.filter(e => (!e.status || e.status === "Published") && e.date >= today);
 
   // Get upcoming celebrations (birthdays and anniversaries) for this month

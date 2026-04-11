@@ -10,6 +10,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { GivingDialog } from "@/components/GivingDialog";
 import { getTracing } from "@/lib/tracing";
+import { getLocalSysDate } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,7 +50,7 @@ export default function MemberDashboard() {
   const [confirmStatus, setConfirmStatus] = useState<{ id: string; status: "completed" | "acknowledged" | "not_available" | "pending"; title: string } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Filter upcoming events
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalSysDate();
   const upcomingEvents = events
     .filter(e => (!e.status || e.status === "Published") && e.date >= today)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())

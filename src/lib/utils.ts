@@ -36,3 +36,12 @@ export function openExternalLink(url: string | undefined) {
     window.open(formatted, "_blank", "noopener,noreferrer");
   }
 }
+/**
+ * Returns the current local date in YYYY-MM-DD format, 
+ * correctly adjusted for timezone offset.
+ */
+export function getLocalSysDate(): string {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().split('T')[0];
+}
