@@ -13,9 +13,16 @@ import { Id } from "./_generated/dataModel";
  * Helper function to get or create an organization by slug
  */
 async function getOrCreateOrganization(ctx: MutationCtx, slug: string): Promise<Id<"organizations">> {
+    // SECURITY: Never create organizations using reserved route keywords
+    const RESERVED = [
+        "login", "signup", "onboarding", "profile", "dashboard", 
+        "settings", "admin", "leader", "member", "newcomer"
+    ];
+    const safeSlug = (!slug || RESERVED.includes(slug)) ? "my-church" : slug;
+
     const org = await ctx.db
         .query("organizations")
-        .withIndex("by_slug", (q) => q.eq("slug", slug))
+        .withIndex("by_slug", (q) => q.eq("slug", safeSlug))
         .first();
 
     if (org) {
@@ -23,14 +30,14 @@ async function getOrCreateOrganization(ctx: MutationCtx, slug: string): Promise<
     }
 
     // Auto-create if not found (Self-Healing)
-    const name = slug
+    const name = safeSlug
         .split("-")
         .map(word => word.charAt(0).toUpperCase() + word.slice(1))
         .join(" ");
 
     const organizationId = await ctx.db.insert("organizations", {
         name: name,
-        slug: slug,
+        slug: safeSlug,
         plan: "free",
         status: "active",
         createdAt: Date.now(),
@@ -68,10 +75,24 @@ export const syncUser = mutation({
             .first();
 
         if (existingUser) {
+            // Data Healing: If user is stuck in a RESERVED or PLACEHOLDER slug org (like "dashboard" or "my-church"), move them
+            const currentOrg = await ctx.db.get(existingUser.organizationId);
+            const INVALID_SLUGS = [
+                "login", "signup", "onboarding", "profile", "dashboard", 
+                "settings", "admin", "leader", "member", "newcomer", "my-church"
+            ];
+            
+            let organizationId = existingUser.organizationId;
+            if (!currentOrg || !currentOrg.slug || INVALID_SLUGS.includes(currentOrg.slug)) {
+                console.log(`[users:syncUser] Healing user ${args.email} - moving from invalid slug "${currentOrg?.slug}" to "${args.orgSlug}"`);
+                organizationId = await getOrCreateOrganization(ctx, args.orgSlug);
+            }
+
             await ctx.db.patch(existingUser._id, {
+                organizationId,
                 email: args.email,
                 role: args.role as any,
-                isActive: true, // Reactivate if was soft-deleted
+                isActive: true,
             });
 
             await logAction(ctx, existingUser, tracing, {
@@ -136,10 +157,29 @@ export const getUser = query({
                 }
             }
 
+            // Resolve organization slug
+            let organizationSlug = "my-church";
+            if (user.organizationId) {
+                const org = await ctx.db.get(user.organizationId);
+                const RESERVED = [
+                    "login", "signup", "onboarding", "profile", "unauthorized",
+                    "dashboard", "about-church", "schedule", "events", "bulletins",
+                    "bible-reading", "announcements", "giving", "ministry-stats",
+                    "manage-events", "manage-bulletins", "members", "attendance",
+                    "follow-ups", "prayer-requests", "assignments", "gallery",
+                    "reports", "system-stats", "manage-users", "onboarding-maintenance",
+                    "schedule-maintenance", "giving-maintenance", "ministries", "roles",
+                    "settings", "record-giving", "transaction-history", "giving-reports", "my-church",
+                ];
+                if (org && org.slug && !RESERVED.includes(org.slug)) {
+                    organizationSlug = org.slug;
+                }
+            }
+
             return {
                 ...user,
                 ministryNames,
-                isFinance: user.isFinance,
+                organizationSlug,
             };
         }
         return null;

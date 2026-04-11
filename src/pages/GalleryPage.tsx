@@ -10,15 +10,31 @@ import {
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select";
+import {
+    Image as ImageIcon,
+    Plus,
+    Filter,
+    Search,
+    ChevronRight,
+    MoreVertical,
+    Calendar,
+    Unlock,
+    Lock,
+    Users,
+    Heart,
+    Trash2,
+    Eye,
+    Edit3,
+    Loader2,
+    Edit2,
+    Globe,
+    Send
+} from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useState, useEffect } from "react";
 import { getTracing } from "../lib/tracing";
-import {
-    Image as ImageIcon, Plus, Heart, MessageSquare,
-    ChevronLeft, ChevronRight
-} from "lucide-react";
 import { toast } from "sonner";
 import { useParams } from "react-router-dom";
 import { Id } from "../../convex/_generated/dataModel";
@@ -365,8 +381,8 @@ function AlbumGrid({ albums, onSelectAlbum, isAdmin, isLeader, user, onEditAlbum
 }
 
 function AlbumDetailView({ albumId, onBack, isLeader, isAdmin }: { albumId: Id<"albums">, onBack: () => void, isLeader: boolean, isAdmin: boolean }) {
-    const { user } = useAuth();
-    const album = useQuery(api.media.getAlbums)?.find(a => a._id === albumId);
+    const { orgSlug } = useParams<{ orgSlug: string }>();
+    const album = useQuery(api.media.getAlbums, { orgSlug })?.find(a => a._id === albumId);
     const photos = useQuery(api.media.getPhotos, { albumId });
     const generateUploadUrl = useMutation(api.media.generateUploadUrl);
     const addPhoto = useMutation(api.media.addPhoto);

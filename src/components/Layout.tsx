@@ -1,16 +1,16 @@
-import { useState, ReactNode } from "react";
+import { useState, ReactNode, useEffect } from "react";
 import { SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, RESERVED_ROUTE_KEYWORDS } from "@/contexts/AuthContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { NotificationBell } from "./NotificationBell";
 import { Button } from "@/components/ui/button";
-import { MessageSquareHeart } from "lucide-react";
+import { MessageSquareHeart, Loader2 } from "lucide-react";
 import { PrayerRequestDialog } from "./PrayerRequestDialog";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { getTracing } from "@/lib/tracing";
-import { Link } from "react-router-dom";
+import { Link, useParams, useNavigate, useLocation } from "react-router-dom";
 
 function SidebarLoggingTrigger() {
   const { toggleSidebar, state } = useSidebar();
@@ -32,8 +32,36 @@ function SidebarLoggingTrigger() {
 export function Layout({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const { viewMode } = useViewMode();
+  const { orgSlug } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
   const logUIEvent = useMutation(api.logs.logUIEvent);
   const [isPrayerDialogOpen, setIsPrayerDialogOpen] = useState(false);
+
+  // Home-Church Enforcement: Redirect to home slug if mismatch or missing
+  useEffect(() => {
+    if (user) {
+      const parts = location.pathname.split("/");
+      const currentSlug = parts[1];
+      const isReserved = RESERVED_ROUTE_KEYWORDS.includes(currentSlug);
+      
+      // Ensure we have a valid destination slug (not reserved)
+      const homeSlug = (user.organizationSlug && !RESERVED_ROUTE_KEYWORDS.includes(user.organizationSlug))
+        ? user.organizationSlug
+        : "my-church";
+
+      // If no slug or mismatching slug, redirect to the home slug
+      if (!currentSlug || isReserved || (currentSlug !== homeSlug)) {
+        console.warn(`[Layout] Access enforcement: Redirecting from "${currentSlug}" to home slug "${homeSlug}"`);
+        
+        // Determine the sub-page route (e.g. dashboard, profile, schedule)
+        // If we are at /dashboard, subPage is "dashboard". If at /magi/dashboard, subPage is "dashboard".
+        const subPage = (isReserved && !parts[2]) ? currentSlug : (parts[2] || "dashboard");
+        
+        navigate(`/${homeSlug}/${subPage}`, { replace: true });
+      }
+    }
+  }, [user, location.pathname, navigate]);
 
   const handleOpenPrayer = () => {
     logUIEvent({

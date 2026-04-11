@@ -4,7 +4,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NavLink } from "@/components/NavLink";
-import { useAuth, UserRole } from "@/contexts/AuthContext";
+import { useAuth, UserRole, RESERVED_ROUTE_KEYWORDS } from "@/contexts/AuthContext";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
@@ -127,10 +127,23 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const [profileOpen, setProfileOpen] = useState(false);
   const { viewMode, setViewMode } = useViewMode();
   const { orgSlug: urlSlug } = useParams();
-  const orgSlug = urlSlug || "my-church";
 
-  const organization = useQuery(api.organizations.get, { slug: urlSlug });
-  const settings = useQuery(api.settings.get, { orgSlug: urlSlug });
+  // Robust slug detection for the sidebar header & branding
+  const getEffectiveSlug = () => {
+    if (urlSlug && !RESERVED_ROUTE_KEYWORDS.includes(urlSlug)) return urlSlug;
+    
+    // Fallback to URL parsing if useParams is empty
+    const parts = location.pathname.split("/");
+    if (parts[1] && !RESERVED_ROUTE_KEYWORDS.includes(parts[1])) return parts[1];
+    
+    // Ultimate fallback for authenticated users: Their assigned home church
+    return user?.organizationSlug || "my-church";
+  };
+
+  const orgSlug = getEffectiveSlug();
+
+  const organization = useQuery(api.organizations.get, { slug: orgSlug });
+  const settings = useQuery(api.settings.get, { orgSlug });
 
   // Guest queries
   const publicOrg = useQuery(api.organizations.getPublic, !user ? { slug: orgSlug } : "skip");

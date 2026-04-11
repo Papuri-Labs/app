@@ -631,12 +631,12 @@ export function ServiceSchedulePage() {
     </Layout>
   );
 }
-
 export function EventsPage() {
+  const { orgSlug } = useParams<{ orgSlug: string }>();
   const { user } = useAuth();
   const { viewMode } = useViewMode();
   const ministryIds = user?.ministryIds ?? [];
-  const events = useQuery(api.events.list) || [];
+  const events = useQuery(api.events.list, { orgSlug }) || [];
   const isLeader = (user?.role === "leader" || user?.role === "admin") && viewMode === "leader";
   const [showCreateEvent, setShowCreateEvent] = useState(false);
   const myRsvps = useQuery(api.events.getUserRsvps, user?._id ? { memberId: user._id as any } : "skip") || [];
@@ -731,7 +731,8 @@ export function EventsPage() {
 }
 
 export function BulletinsPage() {
-  const bulletins = useQuery(api.bulletins.listBulletins) || [];
+  const { orgSlug } = useParams<{ orgSlug: string }>();
+  const bulletins = useQuery(api.bulletins.listBulletins, { orgSlug }) || [];
 
   return (
     <Layout>
@@ -806,8 +807,9 @@ export function BibleReadingPage() {
 }
 
 export function AnnouncementsPage() {
+  const { orgSlug } = useParams<{ orgSlug: string }>();
   const { user } = useAuth();
-  const announcements = useQuery(api.bulletins.listAnnouncements) || [];
+  const announcements = useQuery(api.bulletins.listAnnouncements, { orgSlug }) || [];
   const ministryIds = user?.ministryIds ?? [];
 
   // Filter announcements based on ministry
@@ -1024,9 +1026,10 @@ export function MinistryStatsPage() {
 }
 
 export function ManageEventsPage() {
+  const { orgSlug } = useParams<{ orgSlug: string }>();
   const { user } = useAuth();
   const isLeader = user?.role === "leader" || user?.role === "admin";
-  const events = useQuery(api.events.list) || [];
+  const events = useQuery(api.events.list, { orgSlug }) || [];
   const createEvent = useMutation(api.events.createEvent);
   const updateEvent = useMutation(api.events.updateEvent);
   const deleteEvent = useMutation(api.events.deleteEvent);
@@ -1138,10 +1141,11 @@ export function ManageEventsPage() {
 }
 
 export function ManageBulletinsPage() {
+  const { orgSlug } = useParams<{ orgSlug: string }>();
   const { user } = useAuth();
   const isLeader = user?.role === "leader" || user?.role === "admin";
-  const bulletins = useQuery(api.bulletins.listBulletins) || [];
-  const announcements = useQuery(api.bulletins.listAnnouncements) || [];
+  const bulletins = useQuery(api.bulletins.listBulletins, { orgSlug }) || [];
+  const announcements = useQuery(api.bulletins.listAnnouncements, { orgSlug }) || [];
   const createBulletin = useMutation(api.bulletins.createBulletin);
   const deleteBulletin = useMutation(api.bulletins.deleteBulletin);
   const createAnnouncement = useMutation(api.bulletins.createAnnouncement);
@@ -3349,7 +3353,8 @@ export function MinistriesPage() {
 }
 
 export function OnboardingMaintenancePage() {
-  const steps = useQuery(api.onboarding.listSteps) || [];
+  const { orgSlug } = useParams<{ orgSlug: string }>();
+  const steps = useQuery(api.onboarding.listSteps, { orgSlug }) || [];
   const addStepMutation = useMutation(api.onboarding.addStep);
   const updateStepMutation = useMutation(api.onboarding.updateStep);
   const deleteStepMutation = useMutation(api.onboarding.deleteStep);
@@ -3363,7 +3368,7 @@ export function OnboardingMaintenancePage() {
 
   const handleAddStep = () => {
     if (!title.trim()) return;
-    addStepMutation({ title: title.trim(), description: desc.trim() })
+    addStepMutation({ title: title.trim(), description: desc.trim(), orgSlug })
       .then(() => {
         setTitle("");
         setDesc("");
@@ -3561,7 +3566,8 @@ export function OnboardingMaintenancePage() {
 }
 
 export function ScheduleMaintenancePage() {
-  const services = useQuery(api.services.list) || [];
+  const { orgSlug } = useParams<{ orgSlug: string }>();
+  const services = useQuery(api.services.list, { orgSlug }) || [];
   const addServiceMutation = useMutation(api.services.create);
   const updateServiceMutation = useMutation(api.services.update);
   const deleteServiceMutation = useMutation(api.services.deleteService);
@@ -3585,7 +3591,8 @@ export function ScheduleMaintenancePage() {
       name: name.trim(),
       day: day.trim(),
       time: time.trim(),
-      location: location.trim()
+      location: location.trim(),
+      orgSlug: orgSlug // Crucial for multi-tenant safety
     })
       .then(() => {
         setName("");
@@ -3758,7 +3765,8 @@ export function ScheduleMaintenancePage() {
 }
 
 export function GivingMaintenancePage() {
-  const givingOptions = useQuery(api.giving_options.list) || [];
+  const { orgSlug } = useParams<{ orgSlug: string }>();
+  const givingOptions = useQuery(api.giving_options.list, { orgSlug }) || [];
   const createGivingOption = useMutation(api.giving_options.create);
   const updateGivingOption = useMutation(api.giving_options.update);
   const deleteGivingOption = useMutation(api.giving_options.remove);
@@ -3788,7 +3796,7 @@ export function GivingMaintenancePage() {
       storageId = id;
     }
 
-    createGivingOption({ label, description, storageId })
+    createGivingOption({ label, description, storageId, orgSlug })
       .then(() => {
         setLabel("");
         setDescription("");
