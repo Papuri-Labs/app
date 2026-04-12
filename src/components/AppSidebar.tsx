@@ -245,14 +245,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         });
                       }}
                       className={`
-                        mb-1 transition-all duration-200 rounded-lg hover:bg-muted/50
+                        mb-1 transition-all duration-200 rounded-lg
                         ${location.pathname === getSlugUrl(item.url) ?
-                          'bg-primary/10 text-primary font-medium' :
-                          'text-muted-foreground hover:text-foreground'}
+                          'bg-primary text-primary-foreground font-medium shadow-sm' :
+                          'text-muted-foreground hover:text-foreground hover:bg-muted/50'}
                       `}
                     >
                       <Link to={getSlugUrl(item.url)} className="flex items-center gap-3 px-3 py-2">
-                        <item.icon className={`h-4 w-4 ${location.pathname === getSlugUrl(item.url)} ? 'opacity-100' : 'opacity-70 group-hover:opacity-100'}`} />
+                        <item.icon className={`h-4 w-4 ${location.pathname === getSlugUrl(item.url) ? 'opacity-100' : 'opacity-70 group-hover:opacity-100'}`} />
                         <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
                       </Link>
                     </SidebarMenuButton>

@@ -2855,6 +2855,15 @@ export function SettingsPage() {
     typography: "'Inter', system-ui, sans-serif"
   }), []);
 
+  // Local state for list-based inputs to prevent comma-vanishing bug
+  const [givingTypesDraft, setGivingTypesDraft] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (givingTypesDraft === null && backendSettings?.givingTypes) {
+      setGivingTypesDraft(backendSettings.givingTypes.join(", "));
+    }
+  }, [backendSettings?.givingTypes]);
+
   const currentSettings = useMemo(() => {
     return {
       ...defaultSettings,
@@ -2972,24 +2981,52 @@ export function SettingsPage() {
               </div>
               <div className="grid grid-cols-2 gap-3 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
                 <div className="space-y-2">
-                  <Label>Primary Color (HSL)</Label>
-                  <Input
-                    placeholder="215 55% 42%"
-                    value={currentSettings.primaryColor || ""}
-                    onChange={(e) => handleUpdate({ primaryColor: e.target.value })}
-                    className="font-mono"
-                  />
-                  <p className="text-[10px] opacity-70">Example: 215 55% 42%</p>
+                  <Label>Primary Color (Hex)</Label>
+                  <div className="flex gap-2">
+                    <div 
+                      className="w-9 h-9 rounded-md border cursor-pointer shrink-0 shadow-sm hover:ring-1 ring-primary transition-all"
+                      style={{ backgroundColor: currentSettings.primaryColor?.startsWith('#') ? currentSettings.primaryColor : '#6366f1' }}
+                      onClick={() => document.getElementById('primary-color-picker')?.click()}
+                    />
+                    <Input
+                      placeholder="#6366f1"
+                      value={currentSettings.primaryColor || ""}
+                      onChange={(e) => handleUpdate({ primaryColor: e.target.value })}
+                      className="font-mono h-9"
+                    />
+                    <input
+                      id="primary-color-picker"
+                      type="color"
+                      value={currentSettings.primaryColor?.startsWith('#') ? currentSettings.primaryColor : '#6366f1'}
+                      onChange={(e) => handleUpdate({ primaryColor: e.target.value })}
+                      className="sr-only"
+                    />
+                  </div>
+                  <p className="text-[10px] opacity-70">Example: #6366f1</p>
                 </div>
                 <div className="space-y-2">
-                  <Label>Accent Color (HSL)</Label>
-                  <Input
-                    placeholder="35 80% 52%"
-                    value={currentSettings.accentColor || ""}
-                    onChange={(e) => handleUpdate({ accentColor: e.target.value })}
-                    className="font-mono"
-                  />
-                  <p className="text-[10px] opacity-70">Example: 35 80% 52%</p>
+                  <Label>Accent Color (Hex)</Label>
+                  <div className="flex gap-2">
+                    <div 
+                      className="w-9 h-9 rounded-md border cursor-pointer shrink-0 shadow-sm hover:ring-1 ring-primary transition-all"
+                      style={{ backgroundColor: currentSettings.accentColor?.startsWith('#') ? currentSettings.accentColor : '#f59e0b' }}
+                      onClick={() => document.getElementById('accent-color-picker')?.click()}
+                    />
+                    <Input
+                      placeholder="#f59e0b"
+                      value={currentSettings.accentColor || ""}
+                      onChange={(e) => handleUpdate({ accentColor: e.target.value })}
+                      className="font-mono h-9"
+                    />
+                    <input
+                      id="accent-color-picker"
+                      type="color"
+                      value={currentSettings.accentColor?.startsWith('#') ? currentSettings.accentColor : '#f59e0b'}
+                      onChange={(e) => handleUpdate({ accentColor: e.target.value })}
+                      className="sr-only"
+                    />
+                  </div>
+                  <p className="text-[10px] opacity-70">Example: #f59e0b</p>
                 </div>
               </div>
             </div>
@@ -3063,8 +3100,12 @@ export function SettingsPage() {
                 <Label>Giving Types (Comma separated)</Label>
                 <Textarea
                   placeholder="Tithe, Offering, Mission, Building Fund"
-                  value={currentSettings.givingTypes?.join(", ") || ""}
-                  onChange={(e) => handleUpdate({ givingTypes: e.target.value.split(",").map(t => t.trim()).filter(t => !!t) })}
+                  value={givingTypesDraft ?? (currentSettings.givingTypes?.join(", ") || "")}
+                  onChange={(e) => setGivingTypesDraft(e.target.value)}
+                  onBlur={() => {
+                    const types = (givingTypesDraft || "").split(",").map(t => t.trim()).filter(t => !!t);
+                    handleUpdate({ givingTypes: types });
+                  }}
                   rows={2}
                 />
                 <p className="text-[10px] text-muted-foreground">These will appear in the Record Giving dropdown.</p>
