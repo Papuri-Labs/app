@@ -1,7 +1,7 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useAuth, RESERVED_ROUTE_KEYWORDS } from "@/contexts/AuthContext";
+import { useAuth, RESERVED_ROUTE_KEYWORDS, getPersistedOrgSlug } from "@/contexts/AuthContext";
 import { Id } from "../../convex/_generated/dataModel";
 import { useLocation } from "react-router-dom";
 
@@ -17,20 +17,22 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return slug;
   };
 
-  const orgSlug = getSlugFromPath();
+  const orgSlug = getSlugFromPath() || getPersistedOrgSlug();
 
   // Slug-aware settings: Prioritize the slug from the URL to ensure correct branding
   const settings = useQuery(api.settings.get, { orgSlug });
 
-  // Guest queries: Fallback for situations where user is not yet logged in
-  const publicOrg = useQuery(api.organizations.getPublic, !user ? { slug: orgSlug || "my-church" } : "skip");
-  const publicSettings = useQuery(api.settings.getPublic, (!user && publicOrg) ? { organizationId: publicOrg._id } : "skip");
+  // Guest queries: Robust direct slug-to-settings fetching for unauthenticated pages
+  const guestBranding = useQuery(api.settings.getPublicBySlug, !user ? { slug: orgSlug || "my-church" } : "skip");
+  
+  // Also fetch the org name for the title if needed
+  const guestOrg = useQuery(api.organizations.getPublic, !user ? { slug: orgSlug || "my-church" } : "skip");
 
-  const displaySettings = settings || publicSettings;
+  const displaySettings = settings || guestBranding;
 
-  // Helper to convert hex to HSL components (e.g., "215 55% 42%") for Tailwind
-  const getHslComponents = (hex: string) => {
-    if (!hex || !hex.startsWith('#')) return hex;
+  // Helper to convert hex to HSL numeric values
+  const getHslValues = (hex: string) => {
+    if (!hex || !hex.startsWith('#')) return null;
     
     let r = parseInt(hex.slice(1, 3), 16) / 255;
     let g = parseInt(hex.slice(3, 5), 16) / 255;
@@ -52,31 +54,62 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       h /= 6;
     }
 
-    return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+    return { 
+      h: Math.round(h * 360), 
+      s: Math.round(s * 100), 
+      l: Math.round(l * 100),
+      toString: () => `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`
+    };
   };
 
-  return (
-    <>
-      <style>
-        {`
-          :root {
-            ${displaySettings?.primaryColor ? `
-              --primary: ${getHslComponents(displaySettings.primaryColor)};
-              --sidebar-primary: ${getHslComponents(displaySettings.primaryColor)};
-              --sidebar-ring: ${getHslComponents(displaySettings.primaryColor)};
-              --sidebar-accent-foreground: ${getHslComponents(displaySettings.primaryColor)};
-              --ring: ${getHslComponents(displaySettings.primaryColor)};
-            ` : ""}
-            ${displaySettings?.accentColor ? `
-              --accent: ${getHslComponents(displaySettings.accentColor)};
-            ` : ""}
-            ${displaySettings?.typography ? `
-              --font-family: ${displaySettings.typography};
-            ` : ""}
-          }
-        `}
-      </style>
-      {children}
-    </>
-  );
+  // Helper to determine if a color is light or dark
+  const getContrastForeground = (hsl: { h: number, s: number, l: number } | null) => {
+    if (!hsl) return null;
+    // If lightness is > 75%, use a dark foreground
+    return hsl.l > 75 ? "220 20% 14%" : "0 0% 100%";
+  };
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const primaryHsl = displaySettings?.primaryColor ? getHslValues(displaySettings.primaryColor) : null;
+    const accentHsl = displaySettings?.accentColor ? getHslValues(displaySettings.accentColor) : null;
+
+    if (primaryHsl) {
+      const primaryStr = primaryHsl.toString();
+      const primaryFg = getContrastForeground(primaryHsl) || "0 0% 100%";
+      root.style.setProperty('--primary', primaryStr);
+      root.style.setProperty('--primary-foreground', primaryFg);
+      root.style.setProperty('--sidebar-primary', primaryStr);
+      root.style.setProperty('--sidebar-ring', primaryStr);
+      root.style.setProperty('--ring', primaryStr);
+    } else {
+      root.style.removeProperty('--primary');
+      root.style.removeProperty('--primary-foreground');
+      root.style.removeProperty('--sidebar-primary');
+      root.style.removeProperty('--sidebar-ring');
+      root.style.removeProperty('--ring');
+    }
+
+    if (accentHsl) {
+      const accentStr = accentHsl.toString();
+      const accentFg = getContrastForeground(accentHsl) || "0 0% 100%";
+      root.style.setProperty('--accent', accentStr);
+      root.style.setProperty('--accent-foreground', accentFg);
+      root.style.setProperty('--sidebar-accent', `${accentStr} / 0.05`);
+      root.style.setProperty('--sidebar-accent-foreground', accentFg);
+    } else {
+      root.style.removeProperty('--accent');
+      root.style.removeProperty('--accent-foreground');
+      root.style.removeProperty('--sidebar-accent');
+      root.style.removeProperty('--sidebar-accent-foreground');
+    }
+
+    if (displaySettings?.typography) {
+      root.style.setProperty('--font-family', displaySettings.typography);
+    } else {
+      root.style.removeProperty('--font-family');
+    }
+  }, [displaySettings]);
+
+  return <>{children}</>;
 }
