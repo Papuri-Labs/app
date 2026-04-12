@@ -14,6 +14,7 @@ import type * as attendance from "../attendance.js";
 import type * as budgets from "../budgets.js";
 import type * as bulletins from "../bulletins.js";
 import type * as clerk from "../clerk.js";
+import type * as emails from "../emails.js";
 import type * as debug from "../debug.js";
 import type * as events from "../events.js";
 import type * as expenses from "../expenses.js";
@@ -49,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   budgets: typeof budgets;
   bulletins: typeof bulletins;
   clerk: typeof clerk;
+  emails: typeof emails;
   debug: typeof debug;
   events: typeof events;
   expenses: typeof expenses;
