@@ -2855,6 +2855,15 @@ export function SettingsPage() {
     typography: "'Inter', system-ui, sans-serif"
   }), []);
 
+  // Local state for list-based inputs to prevent comma-vanishing bug
+  const [givingTypesDraft, setGivingTypesDraft] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (givingTypesDraft === null && backendSettings?.givingTypes) {
+      setGivingTypesDraft(backendSettings.givingTypes.join(", "));
+    }
+  }, [backendSettings?.givingTypes]);
+
   const currentSettings = useMemo(() => {
     return {
       ...defaultSettings,
@@ -3091,8 +3100,12 @@ export function SettingsPage() {
                 <Label>Giving Types (Comma separated)</Label>
                 <Textarea
                   placeholder="Tithe, Offering, Mission, Building Fund"
-                  value={currentSettings.givingTypes?.join(", ") || ""}
-                  onChange={(e) => handleUpdate({ givingTypes: e.target.value.split(",").map(t => t.trim()).filter(t => !!t) })}
+                  value={givingTypesDraft ?? (currentSettings.givingTypes?.join(", ") || "")}
+                  onChange={(e) => setGivingTypesDraft(e.target.value)}
+                  onBlur={() => {
+                    const types = (givingTypesDraft || "").split(",").map(t => t.trim()).filter(t => !!t);
+                    handleUpdate({ givingTypes: types });
+                  }}
                   rows={2}
                 />
                 <p className="text-[10px] text-muted-foreground">These will appear in the Record Giving dropdown.</p>
