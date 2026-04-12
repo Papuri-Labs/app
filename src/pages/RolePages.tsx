@@ -2438,8 +2438,7 @@ export function ManageUsersPage() {
   const updateUserRole = useAction(api.clerk.updateRole);
   const toggleFinanceAccess = useMutation(api.users.toggleFinanceAccess);
   const deleteUser = useMutation(api.users.deleteUser);
-  const syncUsers = useAction(api.clerk.sync);
-  const [isSyncing, setIsSyncing] = useState(false);
+
 
   // Add User State
   const createOfflineUser = useMutation(api.users.createOfflineUser);
@@ -2666,25 +2665,7 @@ export function ManageUsersPage() {
           <Card className="glass-strong border-0 rounded-2xl shrink-0">
             <CardContent className="p-4 flex flex-wrap gap-2 items-center justify-between">
               <div className="flex gap-2 w-full overflow-x-auto pb-1 sm:pb-0 sm:w-auto">
-                <Button
-                  size="sm"
-                  variant="default"
-                  disabled={isSyncing}
-                  onClick={async () => {
-                    setIsSyncing(true);
-                    try {
-                      const stats = await syncUsers();
-                      alert(`Synced! Updated: ${stats.updated}, Created: ${stats.created}, Deactivated: ${stats.deactivated}`);
-                    } catch (e: any) {
-                      alert(`Sync failed: ${e.message}`);
-                    } finally {
-                      setIsSyncing(false);
-                    }
-                  }}
-                >
-                  <RefreshCw className={`h-4 w-4 mr-1 ${isSyncing ? 'animate-spin' : ''}`} />
-                  {isSyncing ? "Syncing..." : "Sync w/ Clerk"}
-                </Button>
+
                 <Button size="sm" variant="outline" onClick={() => setShowAddUser(true)}>
                   <UserPlus className="h-4 w-4 mr-1" /> Add User
                 </Button>

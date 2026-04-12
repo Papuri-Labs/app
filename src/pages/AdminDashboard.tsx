@@ -3,6 +3,7 @@ import { DashboardCard } from "@/components/DashboardCard";
 import { StatCard } from "@/components/StatCard";
 import { Button } from "@/components/ui/button";
 import { BarChart3, Users, Shield, Settings, Database, Activity } from "lucide-react";
+import { ComingSoonDialog } from "@/components/ComingSoonDialog";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useNavigate, useParams } from "react-router-dom";

@@ -43,6 +43,16 @@ import GivingReportsPage from "./pages/GivingReportsPage";
 import PrayerRequestsPage from "./pages/PrayerRequestsPage";
 import AssignmentsPage from "./pages/AssignmentsPage";
 import { ThemeProvider } from "./components/ThemeProvider";
+import { Outlet } from "react-router-dom";
+import { Layout } from "@/components/Layout";
+
+function AppLayout() {
+  return (
+    <Layout>
+      <Outlet />
+    </Layout>
+  );
+}
 
 const queryClient = new QueryClient();
 
@@ -63,7 +73,8 @@ const App = () => (
                 <Route path="/:orgSlug/login" element={<Login />} />
                 <Route path="/:orgSlug/signup" element={<SignUp />} />
 
-                {/* Protected Org-aware Routes */}
+                <Route element={<AppLayout />}>
+                  {/* Protected Org-aware Routes */}
                 <Route path="/:orgSlug/dashboard" element={<Dashboard />} />
                 <Route path="/:orgSlug/profile" element={<Profile />} />
 
@@ -105,6 +116,8 @@ const App = () => (
                 <Route path="/:orgSlug/record-giving" element={<RecordGivingPage />} />
                 <Route path="/:orgSlug/transaction-history" element={<TransactionHistoryPage />} />
                 <Route path="/:orgSlug/giving-reports" element={<GivingReportsPage />} />
+
+                </Route>
 
                 {/* Legacy Fallback / Default Redirection */}
                 <Route path="/" element={<Index />} />

@@ -137,15 +137,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   const orgSlug = getEffectiveSlug();
 
-  const organization = useQuery(api.organizations.get, { slug: orgSlug });
-  const settings = useQuery(api.settings.get, { orgSlug });
-
-  // Guest queries
+  // Guest queries - only run if no user is present
   const publicOrg = useQuery(api.organizations.getPublic, !user ? { slug: orgSlug } : "skip");
   const publicSettings = useQuery(api.settings.getPublic, (!user && publicOrg) ? { organizationId: publicOrg._id } : "skip");
 
-  const displayOrg = user ? organization : publicOrg;
-  const displaySettings = user ? settings : publicSettings;
+  // Authenticated queries - only run if user exists AND we are not using a placeholder slug for guests
+  const isPlaceholder = orgSlug === "my-church";
+  const organization = useQuery(api.organizations.get, (user && !isPlaceholder) ? { slug: orgSlug } : "skip");
+  const settings = useQuery(api.settings.get, (user && !isPlaceholder) ? { orgSlug } : "skip");
+
+  const displayOrg = user ? (organization || publicOrg) : publicOrg;
+  const displaySettings = user ? (settings || publicSettings) : publicSettings;
 
   // Determine effective role based on view mode
   let effectiveRole: UserRole = user?.role || "newcomer";
