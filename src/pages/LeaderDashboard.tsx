@@ -10,6 +10,8 @@ import { api } from "../../convex/_generated/api";
 import { BulletinDialog } from "@/components/BulletinDialog";
 import { RsvpDialog } from "@/components/RsvpDialog";
 import { AssignmentDialog } from "@/components/AssignmentDialog";
+import { getTracing } from "@/lib/tracing";
+import { getLocalSysDate } from "@/lib/utils";
 
 export default function LeaderDashboard() {
   const { user } = useAuth();
@@ -42,7 +44,7 @@ export default function LeaderDashboard() {
   );
 
   // Filter upcoming events
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalSysDate();
   const upcomingEvents = events.filter(e => (!e.status || e.status === "Published") && e.date >= today);
 
   // Get upcoming celebrations (birthdays and anniversaries) for this month
@@ -93,7 +95,7 @@ export default function LeaderDashboard() {
   const handleDeleteBulletin = async (id: any) => {
     if (confirm("Are you sure you want to delete this bulletin?")) {
       try {
-        await deleteBulletin({ id });
+        await deleteBulletin({ id, tracing: getTracing() });
       } catch (error) {
         console.error("Failed to delete bulletin:", error);
         alert("Failed to delete bulletin");
@@ -116,8 +118,8 @@ export default function LeaderDashboard() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           <StatCard label="Total Members" value={totalMembers} trend="neutral" icon={<Users className="h-5 w-5 text-primary" />} />
-          <StatCard label="Active Members" value={activeMembers} icon={<Users className="h-5 w-5 text-success" />} />
-          <StatCard label="New Members" value={newMembers} trend="up" icon={<TrendingUp className="h-5 w-5 text-success" />} />
+          <StatCard label="Active Members" value={activeMembers} icon={<Users className="h-5 w-5 text-primary" />} />
+          <StatCard label="New Members" value={newMembers} trend="up" icon={<TrendingUp className="h-5 w-5 text-primary" />} />
           <StatCard label="Upcoming Events" value={upcomingEvents.length} icon={<Calendar className="h-5 w-5 text-primary" />} />
         </div>
 

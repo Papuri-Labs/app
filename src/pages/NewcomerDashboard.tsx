@@ -3,7 +3,7 @@ import { Layout } from "@/components/Layout";
 import { DashboardCard } from "@/components/DashboardCard";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Church, Calendar, Heart, BookOpen, Users, CheckCircle2, Bell, Image as ImageIcon } from "lucide-react";
+import { Church, Calendar, Heart, BookOpen, Users, CheckCircle2, Image as ImageIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { ComingSoonDialog } from "@/components/ComingSoonDialog";
 import { GivingDialog } from "@/components/GivingDialog";
@@ -11,17 +11,19 @@ import { GivingDialog } from "@/components/GivingDialog";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { useParams } from "react-router-dom";
 
 export default function NewcomerDashboard() {
+  const { orgSlug } = useParams<{ orgSlug: string }>();
   const { user } = useAuth();
   const [selectedGiving, setSelectedGiving] = useState<any>(null);
-  const settings = useQuery(api.settings.get);
-  const onboardingSteps = useQuery(api.onboarding.listSteps) || [];
+  
+  const settings = useQuery(api.settings.get, { orgSlug });
+  const onboardingSteps = useQuery(api.onboarding.listSteps, { orgSlug }) || [];
   const userProgress = useQuery(api.onboarding.getUserProgress) || [];
-  const services = useQuery(api.services.list) || [];
-  const givingOptions = useQuery(api.giving_options.list) || [];
-  const bulletins = useQuery(api.bulletins.listBulletins) || [];
-  const recentPhotos = useQuery(api.media.getRecentPhotos, { limit: 4 }) || [];
+  const services = useQuery(api.services.list, { orgSlug }) || [];
+  const givingOptions = useQuery(api.giving_options.list, { orgSlug }) || [];
+  const recentPhotos = useQuery(api.media.getRecentPhotos, { limit: 4, orgSlug }) || [];
   const completeStepMutation = useMutation(api.onboarding.completeStep);
 
   const completedStepIds = new Set(userProgress.map((p: any) => p.stepId));
@@ -71,23 +73,6 @@ export default function NewcomerDashboard() {
                       <p className={`text-sm font-medium ${step.done ? "line-through text-muted-foreground" : ""}`}>{step.title}</p>
                       <p className="text-xs text-muted-foreground">{step.description}</p>
                     </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </DashboardCard>
-
-          {/* Notifications / Bulletins */}
-          <DashboardCard title="Notifications" description="Latest updates" icon={<Bell className="h-5 w-5 text-primary" />} gradient="gradient-newcomer">
-            <div className="space-y-3">
-              {bulletins.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No new notifications.</p>
-              ) : (
-                bulletins.slice(0, 3).map((b: any) => (
-                  <div key={b._id} className="p-3 rounded-xl glass-subtle border-l-4 border-primary">
-                    <p className="text-sm font-medium">{b.title}</p>
-                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{b.summary}</p>
-                    <span className="text-[10px] text-muted-foreground mt-2 block">{b.date}</span>
                   </div>
                 ))
               )}
@@ -184,13 +169,13 @@ export default function NewcomerDashboard() {
                 </div>
               ) : (
                 recentPhotos.map((photo: any) => (
-                  <Link key={photo._id} to="/gallery" className="aspect-square rounded-lg overflow-hidden border border-white/10 hover:opacity-80 transition-opacity">
+                  <Link key={photo._id} to={`/${orgSlug}/gallery`} className="aspect-square rounded-lg overflow-hidden border border-white/10 hover:opacity-80 transition-opacity">
                     <img src={photo.url} alt="Memory" className="w-full h-full object-cover" />
                   </Link>
                 ))
               )}
             </div>
-            <Link to="/gallery">
+            <Link to={`/${orgSlug}/gallery`}>
               <Button variant="outline" size="sm" className="mt-3 w-full">Open Gallery</Button>
             </Link>
           </DashboardCard>

@@ -1,16 +1,17 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { getAuthUser } from "./permissions";
+import { getAuthUser, validateOrgAccess } from "./permissions";
 
 export const list = query({
-    args: {},
-    handler: async (ctx) => {
-        const user = await getAuthUser(ctx);
-        if (!user) return [];
+    args: { orgSlug: v.optional(v.string()) },
+    handler: async (ctx, args) => {
+        const organizationId = await validateOrgAccess(ctx, args.orgSlug);
+
+        if (!organizationId) return [];
 
         return await ctx.db
             .query("giving_options")
-            .withIndex("by_organization", (q) => q.eq("organizationId", user.organizationId))
+            .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
             .collect();
     },
 });
@@ -20,8 +21,11 @@ export const create = mutation({
         label: v.string(),
         description: v.string(),
         storageId: v.optional(v.id("_storage")),
+        orgSlug: v.optional(v.string()), // Added for multi-tenant safety
     },
     handler: async (ctx, args) => {
+        const organizationId = await validateOrgAccess(ctx, args.orgSlug);
+        if (!organizationId) throw new Error("Could not resolve organization context");
         const user = await getAuthUser(ctx);
         if (!user || user.role !== "admin") throw new Error("Unauthorized");
 
@@ -31,7 +35,7 @@ export const create = mutation({
         }
 
         return await ctx.db.insert("giving_options", {
-            organizationId: user.organizationId,
+            organizationId,
             label: args.label,
             description: args.description,
             qrCodeUrl,

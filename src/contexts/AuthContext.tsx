@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo, useRef } from "react";
 import { useAuth as useClerkAuth, useUser } from "@clerk/clerk-react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -32,6 +32,7 @@ interface User {
   birthday?: string;
   gender?: string;
   contactNumber?: string;
+  organizationSlug?: string;
   socials?: {
     facebook?: string;
     instagram?: string;
@@ -43,6 +44,7 @@ interface AuthContextType {
   user: User | null;
   organizationId?: string; // Expose organizationId at context level for easy access
   isAuthenticated: boolean;
+  isLoading: boolean;
   login: (email: string, password: string, role?: UserRole) => Promise<void>;
   logout: () => Promise<void>;
   switchRole: (role: UserRole) => void;
@@ -60,10 +62,51 @@ export const useAuth = () => {
   return ctx;
 };
 
+/** All app route segment names that must NOT be interpreted as organization slugs */
+export const RESERVED_ROUTE_KEYWORDS = [
+  "login", "signup", "onboarding", "profile", "unauthorized",
+  "dashboard", "about-church", "schedule", "events", "bulletins",
+  "bible-reading", "announcements", "giving", "ministry-stats",
+  "manage-events", "manage-bulletins", "members", "attendance",
+  "follow-ups", "prayer-requests", "assignments", "gallery",
+  "reports", "system-stats", "manage-users", "onboarding-maintenance",
+  "schedule-maintenance", "giving-maintenance", "ministries", "roles",
+  "settings", "record-giving", "transaction-history", "giving-reports", "my-church",
+];
+
+/** Extract the org slug from the current URL, falling back to "my-church" */
+function getOrgSlugFromUrl(): string {
+  const pathParts = window.location.pathname.split("/");
+  const slug = pathParts[1] || "my-church";
+  const effective = RESERVED_ROUTE_KEYWORDS.includes(slug) ? "my-church" : slug;
+  // Persist so login/signup pages can recover it even after Clerk redirects
+  if (effective !== "my-church") {
+    sessionStorage.setItem("orgSlug", effective);
+  }
+  return effective;
+}
+
+/** Read slug from Clerk's redirect_url param or sessionStorage */
+export function getPersistedOrgSlug(): string {
+  // Clerk appends ?redirect_url=... when redirecting unauthenticated users
+  const params = new URLSearchParams(window.location.search);
+  const redirectUrl = params.get("redirect_url") || params.get("redirect") || "";
+  if (redirectUrl) {
+    const parts = decodeURIComponent(redirectUrl).split("/");
+    const slugFromRedirect = parts[1] || "";
+    if (slugFromRedirect && !RESERVED_ROUTE_KEYWORDS.includes(slugFromRedirect)) {
+      sessionStorage.setItem("orgSlug", slugFromRedirect);
+      return slugFromRedirect;
+    }
+  }
+  return sessionStorage.getItem("orgSlug") || "my-church";
+}
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const { isSignedIn, signOut } = useClerkAuth();
+  const { isLoaded, isSignedIn } = useClerkAuth();
   const { user: clerkUser } = useUser();
-  const [user, setUser] = useState<User | null>(null);
+  const { signOut } = useClerkAuth();
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Keep local state for ministries and settings for now
   const [ministries, setMinistries] = useState<Ministry[]>([
@@ -79,62 +122,89 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   });
 
   const syncUser = useMutation(api.users.syncUser);
+  const syncAttempted = React.useRef<string | null>(null);
 
-  // Query user data from Convex to get ministry names
+  // Query user data from Convex
   const convexUser = useQuery(
     api.users.getUser,
     clerkUser ? { userId: clerkUser.id } : "skip"
   );
 
+  // 1. Handle Syncing (Triggered once per sign-in)
   useEffect(() => {
-    if (isSignedIn && clerkUser) {
-      // Map Clerk user to our app's user structure
-      const role: UserRole = (clerkUser.publicMetadata.role as UserRole) || "newcomer";
+    if (isLoaded && isSignedIn && clerkUser) {
+      // Prioritize Clerk Metadata as the Source of Truth, then the URL
+      const metadataSlug = clerkUser.publicMetadata?.orgSlug as string;
+      const urlSlug = getOrgSlugFromUrl();
+      const isReserved = RESERVED_ROUTE_KEYWORDS.includes(urlSlug);
+      
+      const effectiveSlug = isReserved 
+        ? (metadataSlug || "my-church") 
+        : (urlSlug || "my-church");
 
-      // Sync user to Convex
-      syncUser({
-        userId: clerkUser.id,
-        name: clerkUser.fullName || clerkUser.username || "User",
-        email: clerkUser.primaryEmailAddress?.emailAddress || "",
-        role: role,
-        avatar: clerkUser.imageUrl,
-        tracing: getTracing(),
-      }).catch((err) => console.error("Failed to sync user:", err));
+      const syncKey = `${clerkUser.id}-${effectiveSlug}`;
+      if (syncAttempted.current !== syncKey) {
+        console.log(`[AuthContext] Initiating sync for user: ${clerkUser.id} on org: ${effectiveSlug}`);
+        syncAttempted.current = syncKey;
+        setIsSyncing(true);
+        
+        // Initial role suggestion (only used for new user creation in Convex)
+        const role = (clerkUser.publicMetadata.role as UserRole) || "newcomer";
 
-      // Use Convex user data if available (with ministry names), otherwise use Clerk data
-      if (convexUser) {
-        setUser({
-          id: clerkUser.id,
-          _id: convexUser._id,
-          organizationId: convexUser.organizationId,
-          name: convexUser.name,
-          email: convexUser.email,
-          role: convexUser.role as UserRole,
-          avatar: clerkUser.imageUrl,
-          ministryIds: convexUser.ministryIds,
-          ministryNames: convexUser.ministryNames || [],
-          address: convexUser.address,
-          birthday: convexUser.birthday,
-          gender: convexUser.gender,
-          contactNumber: convexUser.contactNumber,
-          isFinance: convexUser.isFinance,
-          socials: convexUser.socials,
-        });
-      } else {
-        setUser({
-          id: clerkUser.id,
+        syncUser({
+          userId: clerkUser.id,
           name: clerkUser.fullName || clerkUser.username || "User",
           email: clerkUser.primaryEmailAddress?.emailAddress || "",
           role: role,
+          orgSlug: effectiveSlug,
           avatar: clerkUser.imageUrl,
-          ministryIds: [],
-          ministryNames: [],
+          tracing: getTracing(),
+        }).then(() => {
+          console.log("[AuthContext] Sync completed");
+          setIsSyncing(false);
+        }).catch((err) => {
+          console.error("[AuthContext] Sync failed:", err);
+          syncAttempted.current = null;
+          setIsSyncing(false);
         });
       }
-    } else {
-      setUser(null);
+    } else if (isLoaded && !isSignedIn) {
+      syncAttempted.current = null;
     }
+  }, [isLoaded, isSignedIn, clerkUser?.id]); 
+
+  // 2. Atomic User State Derivation (Source of Truth)
+  const user = useMemo(() => {
+    if (!isSignedIn || !clerkUser || !convexUser) return null;
+
+    // Determine the organization slug from Convex (source of truth) or fallback to URL during initial load
+    const finalOrgSlug = (convexUser.organizationSlug && !RESERVED_ROUTE_KEYWORDS.includes(convexUser.organizationSlug))
+      ? convexUser.organizationSlug
+      : (getOrgSlugFromUrl() || "my-church");
+
+    return {
+      id: clerkUser.id,
+      _id: convexUser._id,
+      organizationId: convexUser.organizationId,
+      name: convexUser.name,
+      email: convexUser.email,
+      role: convexUser.role as UserRole,
+      avatar: clerkUser.imageUrl,
+      ministryIds: convexUser.ministryIds,
+      ministryNames: convexUser.ministryNames || [],
+      address: convexUser.address,
+      birthday: convexUser.birthday,
+      gender: convexUser.gender,
+      contactNumber: convexUser.contactNumber,
+      isFinance: convexUser.isFinance,
+      organizationSlug: finalOrgSlug,
+      socials: convexUser.socials,
+    };
   }, [isSignedIn, clerkUser, convexUser]);
+
+  useEffect(() => {
+    if (user) console.log("[AuthContext] Resolved user state:", user.email);
+  }, [user]);
 
   const login = async () => {
     // This is now handled by Clerk's UI components typically, 
@@ -145,12 +215,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = async () => {
-    await signOut();
-    setUser(null);
+    // Capture current orgSlug before signing out so we redirect to the right login page
+    const slug = getOrgSlugFromUrl();
+    await signOut({ redirectUrl: `/${slug}/login` });
   };
 
   const switchRole = (role: UserRole) => {
-    if (user) setUser({ ...user, role });
+    console.warn("switchRole is deprecated now that roles are derived purely from Convex. Use ViewModeContext to change UI views without altering database roles.");
   };
 
   const addMinistry = (ministry: Ministry) => {
@@ -166,7 +237,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       value={{
         user,
         organizationId: user?.organizationId,
-        isAuthenticated: !!isSignedIn,
+        isAuthenticated: !!isSignedIn && !!user,
+        isLoading: !isLoaded || (isSignedIn && (convexUser === undefined || isSyncing)),
         login,
         logout,
         switchRole,

@@ -5,11 +5,12 @@ import { StatCard } from "@/components/StatCard";
 import { Button } from "@/components/ui/button";
 import { Calendar, FileText, BookOpen, Bell, Heart, Users, ClipboardList, Check, XCircle, AlertCircle, Loader2, Image as ImageIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { GivingDialog } from "@/components/GivingDialog";
 import { getTracing } from "@/lib/tracing";
+import { getLocalSysDate } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +30,7 @@ const bibleReading = {
 };
 
 export default function MemberDashboard() {
+  const { orgSlug } = useParams<{ orgSlug: string }>();
   const { user } = useAuth();
   const logUIEvent = useMutation(api.logs.logUIEvent);
   const [selectedGiving, setSelectedGiving] = useState<any>(null);
@@ -49,7 +51,7 @@ export default function MemberDashboard() {
   const [confirmStatus, setConfirmStatus] = useState<{ id: string; status: "completed" | "acknowledged" | "not_available" | "pending"; title: string } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Filter upcoming events
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalSysDate();
   const upcomingEvents = events
     .filter(e => (!e.status || e.status === "Published") && e.date >= today)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
@@ -201,7 +203,7 @@ export default function MemberDashboard() {
                 ))
               )}
             </div>
-            <Link to="/assignments">
+            <Link to={`/${orgSlug}/assignments`}>
               <Button variant="outline" size="sm" className="mt-4 w-full">View All Assignments</Button>
             </Link>
           </DashboardCard>
@@ -229,7 +231,7 @@ export default function MemberDashboard() {
                 ))
               )}
             </div>
-            <Link to="/events">
+            <Link to={`/${orgSlug}/events`}>
               <Button variant="outline" size="sm" className="mt-3 w-full">View All Events</Button>
             </Link>
           </DashboardCard>
@@ -287,13 +289,13 @@ export default function MemberDashboard() {
                 </div>
               ) : (
                 recentPhotos.map((photo: any) => (
-                  <Link key={photo._id} to="/gallery" className="aspect-square rounded-lg overflow-hidden border border-white/10 hover:opacity-80 transition-opacity">
+                  <Link key={photo._id} to={`/${orgSlug}/gallery`} className="aspect-square rounded-lg overflow-hidden border border-white/10 hover:opacity-80 transition-opacity">
                     <img src={photo.url} alt="Memory" className="w-full h-full object-cover" />
                   </Link>
                 ))
               )}
             </div>
-            <Link to="/gallery">
+            <Link to={`/${orgSlug}/gallery`}>
               <Button variant="outline" size="sm" className="mt-3 w-full">Open Gallery</Button>
             </Link>
           </DashboardCard>

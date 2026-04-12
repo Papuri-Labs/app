@@ -24,6 +24,7 @@ export default defineSchema({
     userId: v.string(), // Clerk ID
     name: v.string(),
     email: v.optional(v.string()),
+    avatar: v.optional(v.string()),
     role: v.union(
       v.literal("newcomer"),
       v.literal("member"),

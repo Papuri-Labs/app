@@ -4,7 +4,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NavLink } from "@/components/NavLink";
-import { useAuth, UserRole } from "@/contexts/AuthContext";
+import { useAuth, UserRole, RESERVED_ROUTE_KEYWORDS } from "@/contexts/AuthContext";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
@@ -21,6 +21,7 @@ import { ProfileDialog } from "@/components/ProfileDialog";
 import { useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useViewMode } from "@/contexts/ViewModeContext";
+import { roleBadgeStyles } from "@/lib/role-colors";
 
 type NavItem = { title: string; url: string; icon: React.ElementType };
 
@@ -107,17 +108,11 @@ const roleLabels: Record<UserRole, string> = {
   newcomer: "Newcomer",
   member: "Member",
   leader: "Leader",
-  finance: "Finance",
+  finance: "Finance User",
   admin: "Admin",
 };
 
-const roleColors: Record<UserRole, string> = {
-  newcomer: "bg-accent/10 text-accent",
-  member: "bg-primary/10 text-primary",
-  leader: "bg-success/10 text-success",
-  finance: "bg-blue-500/10 text-blue-500",
-  admin: "bg-destructive/10 text-destructive",
-};
+// roleColors is now handled by roleBadgeStyles in role-colors.ts
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user, logout } = useAuth();
@@ -127,17 +122,32 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const [profileOpen, setProfileOpen] = useState(false);
   const { viewMode, setViewMode } = useViewMode();
   const { orgSlug: urlSlug } = useParams();
-  const orgSlug = urlSlug || "my-church";
 
-  const organization = useQuery(api.organizations.get, user?.organizationId ? { organizationId: user.organizationId as Id<"organizations"> } : "skip");
-  const settings = useQuery(api.settings.get);
+  // Robust slug detection for the sidebar header & branding
+  const getEffectiveSlug = () => {
+    if (urlSlug && !RESERVED_ROUTE_KEYWORDS.includes(urlSlug)) return urlSlug;
+    
+    // Fallback to URL parsing if useParams is empty
+    const parts = location.pathname.split("/");
+    if (parts[1] && !RESERVED_ROUTE_KEYWORDS.includes(parts[1])) return parts[1];
+    
+    // Ultimate fallback for authenticated users: Their assigned home church
+    return user?.organizationSlug || "my-church";
+  };
 
-  // Guest queries
+  const orgSlug = getEffectiveSlug();
+
+  // Guest queries - only run if no user is present
   const publicOrg = useQuery(api.organizations.getPublic, !user ? { slug: orgSlug } : "skip");
   const publicSettings = useQuery(api.settings.getPublic, (!user && publicOrg) ? { organizationId: publicOrg._id } : "skip");
 
-  const displayOrg = user ? organization : publicOrg;
-  const displaySettings = user ? settings : publicSettings;
+  // Authenticated queries - only run if user exists AND we are not using a placeholder slug for guests
+  const isPlaceholder = orgSlug === "my-church";
+  const organization = useQuery(api.organizations.get, (user && !isPlaceholder) ? { slug: orgSlug } : "skip");
+  const settings = useQuery(api.settings.get, (user && !isPlaceholder) ? { orgSlug } : "skip");
+
+  const displayOrg = user ? (organization || publicOrg) : publicOrg;
+  const displaySettings = user ? (settings || publicSettings) : publicSettings;
 
   // Determine effective role based on view mode
   let effectiveRole: UserRole = user?.role || "newcomer";
@@ -198,7 +208,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     <Sidebar collapsible="icon" {...props} className="border-r border-border/10 glass-subtle animate-fade-in z-40">
       <SidebarHeader className="p-3 border-b border-border/30">
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-lg gradient-header flex items-center justify-center shadow-sm overflow-hidden">
+          <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center shadow-sm overflow-hidden">
             {displaySettings?.logoUrl ? (
               <img src={displaySettings.logoUrl} alt="Logo" className="h-full w-full object-cover" />
             ) : (
@@ -236,8 +246,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       }}
                       className={`
                         mb-1 transition-all duration-200 rounded-lg hover:bg-muted/50
-                        ${location.pathname === item.url ?
-                          `bg-${effectiveRole === 'leader' ? 'success' : effectiveRole === 'finance' ? 'blue-500' : 'primary'}/10 text-${effectiveRole === 'leader' ? 'success' : effectiveRole === 'finance' ? 'blue-500' : 'primary'} font-medium` :
+                        ${location.pathname === getSlugUrl(item.url) ?
+                          'bg-primary/10 text-primary font-medium' :
                           'text-muted-foreground hover:text-foreground'}
                       `}
                     >
@@ -263,13 +273,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-primary/5 transition-all duration-200 group-data-[collapsible=icon]:justify-center">
                   <Avatar className="h-8 w-8">
-                    <AvatarFallback className="gradient-header text-primary-foreground text-xs font-medium">
+                    <AvatarFallback className="bg-primary text-primary-foreground text-xs font-medium">
                       {user.name.split(" ").map(n => n[0]).join("")}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 text-left group-data-[collapsible=icon]:hidden">
                     <p className="text-sm font-medium text-sidebar-foreground">{user.name}</p>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${roleColors[effectiveRole]}`}>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${roleBadgeStyles[effectiveRole]}`}>
                       {(effectiveRole === "leader" || effectiveRole === "member") && user.ministryNames && user.ministryNames.length > 0
                         ? `${user.ministryNames.join(", ")} ${effectiveRole === "leader" ? "Leader" : "Member"}`
                         : roleLabels[effectiveRole]}
@@ -356,7 +366,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         ) : (
           <Button
             asChild
-            className="w-full gap-2 gradient-header text-primary-foreground group-data-[collapsible=icon]:p-0"
+            className="w-full gap-2 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors group-data-[collapsible=icon]:p-0"
           >
             <Link to={getSlugUrl("/login")}>
               <LogOut className="h-4 w-4 rotate-180" />

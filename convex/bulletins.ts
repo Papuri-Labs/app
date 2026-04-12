@@ -1,13 +1,15 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { getAuthUser, canManageMinistry, getUserMinistries, isLeader, canViewMinistry, getDefaultOrganizationId } from "./permissions";
+import { getAuthUser, canManageMinistry, getUserMinistries, isLeader, canViewMinistry, validateOrgAccess } from "./permissions";
 import { logAction, logArgs } from "./logs";
 
 export const listBulletins = query({
-    args: {},
-    handler: async (ctx) => {
+    args: { orgSlug: v.optional(v.string()) },
+    handler: async (ctx, args) => {
+        const organizationId = await validateOrgAccess(ctx, args.orgSlug);
+        if (!organizationId) return [];
+
         const user = await getAuthUser(ctx);
-        const organizationId = user ? user.organizationId : await getDefaultOrganizationId(ctx);
 
         const allBulletins = await ctx.db
             .query("bulletins")
@@ -32,9 +34,13 @@ export const createBulletin = mutation({
         status: v.string(),
         ministryId: v.optional(v.id("ministries")),
         editor: v.optional(v.string()),
+        orgSlug: v.optional(v.string()), // Multi-tenant safety
         tracing: v.object(logArgs),
     },
     handler: async (ctx, args) => {
+        const organizationId = await validateOrgAccess(ctx, args.orgSlug);
+        if (!organizationId) throw new Error("Organization not found. Please sync your account.");
+
         const user = await getAuthUser(ctx);
         if (!user) throw new Error("Unauthorized");
 
@@ -48,9 +54,9 @@ export const createBulletin = mutation({
             throw new Error("You can only create bulletins for your assigned ministries");
         }
 
-        const { tracing, ...bulletinData } = args;
+        const { tracing, orgSlug, ...bulletinData } = args;
         const id = await ctx.db.insert("bulletins", {
-            organizationId: user.organizationId,
+            organizationId,
             ...bulletinData,
         });
 
@@ -128,11 +134,14 @@ export const deleteBulletin = mutation({
         });
     },
 });
+
 export const listAnnouncements = query({
-    args: {},
-    handler: async (ctx) => {
+    args: { orgSlug: v.optional(v.string()) },
+    handler: async (ctx, args) => {
+        const organizationId = await validateOrgAccess(ctx, args.orgSlug);
+        if (!organizationId) return [];
+
         const user = await getAuthUser(ctx);
-        const organizationId = user ? user.organizationId : await getDefaultOrganizationId(ctx);
 
         const allAnnouncements = await ctx.db
             .query("announcements")

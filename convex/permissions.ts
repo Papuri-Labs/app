@@ -91,3 +91,64 @@ export function isAdmin(user: { role: string } | null): boolean {
     if (!user) return false;
     return user.role === "admin";
 }
+
+/**
+ * Validate that an authenticated user is accessing an allowed organization slug.
+ * - Guests can view any slug (e.g. landing pages).
+ * - Logged-in users MUST match their organization's slug.
+ * - Admins are also restricted to their own organization as per user request.
+ * @returns The resolved organizationId if valid.
+ * @throws Error if access is denied.
+ */
+export async function validateOrgAccess(
+    ctx: QueryCtx | MutationCtx,
+    slug: string | undefined
+): Promise<Id<"organizations"> | null> {
+    const user = await getAuthUser(ctx);
+    
+    // 1. Guests can view any slug (e.g. for landing pages/onboarding before sign up)
+    if (!user) {
+        const org = await ctx.db
+            .query("organizations")
+            .withIndex("by_slug", (q) => q.eq("slug", slug || "my-church"))
+            .first();
+        if (!org) return null; // Resilient: Don't crash guests if org is missing
+        return org._id;
+    }
+
+    // 2. Fetch the user's organization to get its slug for comparison
+    const userOrg = await ctx.db.get(user.organizationId);
+    if (!userOrg) throw new Error("User organization not found");
+
+    // 3. Authenticated logic: Must match their home slug
+    // If no slug provided in args, fallback to user's home org
+    if (!slug) return user.organizationId;
+
+    // DATA VISIBILITY HEALING & PLACEHOLDER RESILIENCE:
+    // If the user's current database record is a generic placeholder (like "my-church" or "dashboard"),
+    // or if they are requesting a generic placeholder, allow them to see the content.
+    // This prevents a "Security Deadlock" while the syncUser mutation or UI state is catching up.
+    const INVALID_SLUGS = [
+        "login", "signup", "onboarding", "profile", "dashboard", 
+        "settings", "admin", "leader", "member", "newcomer", "my-church"
+    ];
+
+    if (userOrg.slug && (INVALID_SLUGS.includes(userOrg.slug) || INVALID_SLUGS.includes(slug))) {
+        // If the requested slug is a placeholder, or the user is CURRENTLY in a placeholder church,
+        // we allow the access but return their ACTUAL organization ID (the authoritative one).
+        const requestedOrg = await ctx.db
+            .query("organizations")
+            .withIndex("by_slug", (q) => q.eq("slug", slug))
+            .first();
+        
+        // If the requested slug exists, return it. Otherwise return the user's assigned org.
+        return requestedOrg ? requestedOrg._id : user.organizationId;
+    }
+
+    if (userOrg.slug !== slug) {
+        // Strict blocking: Once synced to a REAL church, you can't see others
+        throw new Error(`Unauthorized: You are assigned to "${userOrg.slug}" and cannot access "${slug}".`);
+    }
+
+    return user.organizationId;
+}

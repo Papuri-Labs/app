@@ -9,17 +9,51 @@ import { Id } from "./_generated/dataModel";
  * In single-church mode, there's only one organization
  * In multi-tenant mode, this would get the user's organization
  */
-async function getDefaultOrganization(ctx: QueryCtx | MutationCtx): Promise<Id<"organizations">> {
+/**
+ * Helper function to get or create an organization by slug
+ */
+async function getOrCreateOrganization(ctx: MutationCtx, slug: string): Promise<Id<"organizations">> {
+    // SECURITY: Never create organizations using reserved route keywords
+    const RESERVED = [
+        "login", "signup", "onboarding", "profile", "dashboard", 
+        "settings", "admin", "leader", "member", "newcomer"
+    ];
+    const safeSlug = (!slug || RESERVED.includes(slug)) ? "my-church" : slug;
+
     const org = await ctx.db
         .query("organizations")
-        .withIndex("by_slug", (q) => q.eq("slug", "my-church"))
+        .withIndex("by_slug", (q) => q.eq("slug", safeSlug))
         .first();
 
-    if (!org) {
-        throw new Error("Default organization not found. Please run the migration script.");
+    if (org) {
+        return org._id;
     }
 
-    return org._id;
+    // Auto-create if not found (Self-Healing)
+    const name = safeSlug
+        .split("-")
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+
+    const organizationId = await ctx.db.insert("organizations", {
+        name: name,
+        slug: safeSlug,
+        plan: "free",
+        status: "active",
+        createdAt: Date.now(),
+    });
+
+    // Initialize default settings for the new organization
+    await ctx.db.insert("settings", {
+        organizationId,
+        inactiveAbsences: 4,
+        promoteAttendance: 8,
+        followUpAbsences: 2,
+        welcomeTitle: `Welcome to ${name}`,
+        welcomeMessage: "We are glad to have you with us!",
+    } as any);
+
+    return organizationId;
 }
 
 export const syncUser = mutation({
@@ -28,6 +62,7 @@ export const syncUser = mutation({
         name: v.string(),
         email: v.string(),
         role: v.string(),
+        orgSlug: v.string(),
         avatar: v.optional(v.string()),
         tracing: v.object(logArgs),
     },
@@ -40,12 +75,28 @@ export const syncUser = mutation({
             .first();
 
         if (existingUser) {
-            await ctx.db.patch(existingUser._id, {
-                name: args.name,
+            // Data Healing: If user is stuck in a RESERVED or PLACEHOLDER slug org (like "dashboard" or "my-church"), move them
+            const currentOrg = await ctx.db.get(existingUser.organizationId);
+            const INVALID_SLUGS = [
+                "login", "signup", "onboarding", "profile", "dashboard", 
+                "settings", "admin", "leader", "member", "newcomer", "my-church"
+            ];
+            
+            // Profile Sync (Convex is now source of truth for Role & Org once established)
+            const updates: any = {
                 email: args.email,
-                role: args.role as any,
-                isActive: true, // Reactivate if was soft-deleted
-            });
+                name: args.name,
+                avatar: args.avatar,
+                isActive: true,
+            };
+
+            // Only update organization if it's currently invalid or placeholder
+            if (!currentOrg || !currentOrg.slug || INVALID_SLUGS.includes(currentOrg.slug)) {
+                console.log(`[users:syncUser] Auto-assigning user ${args.email} to org: ${args.orgSlug}`);
+                updates.organizationId = await getOrCreateOrganization(ctx, args.orgSlug);
+            }
+
+            await ctx.db.patch(existingUser._id, updates);
 
             await logAction(ctx, existingUser, tracing, {
                 action: "USER_SYNC",
@@ -59,8 +110,8 @@ export const syncUser = mutation({
             return existingUser._id;
         }
 
-        // Get the default organization for new users
-        const organizationId = await getDefaultOrganization(ctx);
+        // Get or create the organization based on the provided slug (only for new users)
+        const organizationId = await getOrCreateOrganization(ctx, args.orgSlug);
 
         const newUserId = await ctx.db.insert("users", {
             organizationId,
@@ -109,10 +160,29 @@ export const getUser = query({
                 }
             }
 
+            // Resolve organization slug
+            let organizationSlug = "my-church";
+            if (user.organizationId) {
+                const org = await ctx.db.get(user.organizationId);
+                const RESERVED = [
+                    "login", "signup", "onboarding", "profile", "unauthorized",
+                    "dashboard", "about-church", "schedule", "events", "bulletins",
+                    "bible-reading", "announcements", "giving", "ministry-stats",
+                    "manage-events", "manage-bulletins", "members", "attendance",
+                    "follow-ups", "prayer-requests", "assignments", "gallery",
+                    "reports", "system-stats", "manage-users", "onboarding-maintenance",
+                    "schedule-maintenance", "giving-maintenance", "ministries", "roles",
+                    "settings", "record-giving", "transaction-history", "giving-reports", "my-church",
+                ];
+                if (org && org.slug && !RESERVED.includes(org.slug)) {
+                    organizationSlug = org.slug;
+                }
+            }
+
             return {
                 ...user,
                 ministryNames,
-                isFinance: user.isFinance,
+                organizationSlug,
             };
         }
         return null;
@@ -280,10 +350,20 @@ export const internalDeactivateUser = internalMutation({
 });
 // Export list of leaders for the About page
 export const listLeaders = query({
-    args: {},
-    handler: async (ctx) => {
+    args: { orgSlug: v.optional(v.string()) },
+    handler: async (ctx, args) => {
         const user = await getAuthUser(ctx);
-        const organizationId = user ? user.organizationId : await getDefaultOrganizationId(ctx);
+        let organizationId = user?.organizationId;
+
+        if (!organizationId && args.orgSlug) {
+            const org = await ctx.db
+                .query("organizations")
+                .withIndex("by_slug", (q) => q.eq("slug", args.orgSlug!))
+                .first();
+            organizationId = org?._id;
+        }
+
+        if (!organizationId) return [];
 
         const leaders = await ctx.db
             .query("users")

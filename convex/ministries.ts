@@ -23,7 +23,8 @@ export const create = mutation({
 
     const existing = await ctx.db
       .query("ministries")
-      .withIndex("by_name", (q) => q.eq("name", name))
+      .withIndex("by_organization", (q) => q.eq("organizationId", user.organizationId))
+      .filter(q => q.eq(q.field("name"), name))
       .first();
 
     if (existing) return existing._id;

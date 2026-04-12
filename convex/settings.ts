@@ -1,16 +1,17 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { getAuthUser } from "./permissions";
+import { getAuthUser, validateOrgAccess } from "./permissions";
 
 export const get = query({
-  args: {},
-  handler: async (ctx) => {
-    const user = await getAuthUser(ctx);
-    if (!user) return null;
+  args: { orgSlug: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const organizationId = await validateOrgAccess(ctx, args.orgSlug);
+    if (!organizationId) return null;
+    if (!organizationId) return null;
 
     const settings = await ctx.db
       .query("settings")
-      .withIndex("by_organization", (q) => q.eq("organizationId", user.organizationId))
+      .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
       .first();
     return settings;
   },

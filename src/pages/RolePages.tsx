@@ -19,7 +19,7 @@ import { EventDialog } from "@/components/EventDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { useMemo, useState, useEffect } from "react";
-import { useNavigate, Link, Navigate } from "react-router-dom";
+import { useNavigate, Link, Navigate, useParams } from "react-router-dom";
 import {
   Calendar,
   BookOpen,
@@ -60,7 +60,7 @@ import { ImageUpload } from "@/components/ImageUpload";
 import { getTracing } from "@/lib/tracing";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { openExternalLink } from "@/lib/utils";
+import { openExternalLink, getLocalSysDate } from "@/lib/utils";
 
 import { GalleryPage } from "./GalleryPage";
 
@@ -120,6 +120,8 @@ const systemMetrics: { label: string; value: string | number; trend?: string }[]
 const usersList: { name: string; email: string; role: string; status: string; ministryIds: string[] }[] = [];
 
 const rolesMatrix: { role: string; access: string }[] = [];
+
+import { roleBadgeStyles } from "@/lib/role-colors";
 
 export function NewcomerOnboardingPage() {
   const { user } = useAuth();
@@ -233,18 +235,18 @@ export function NewcomerOnboardingPage() {
 }
 
 export function AboutChurchPage() {
+  const { orgSlug } = useParams<{ orgSlug: string }>();
   const { user } = useAuth();
-  const leaders = useQuery(api.users.listLeaders) || [];
+  const leaders = useQuery(api.users.listLeaders, { orgSlug }) || [];
 
   const organization = useQuery(api.organizations.get, user?.organizationId ? { organizationId: user.organizationId as Id<"organizations"> } : "skip");
-  const settings = useQuery(api.settings.get);
+  const settings = useQuery(api.settings.get, { orgSlug });
 
   // Guest queries
-  const publicOrg = useQuery(api.organizations.getPublic, !user ? { slug: "my-church" } : "skip");
-  const publicSettings = useQuery(api.settings.getPublic, (!user && publicOrg) ? { organizationId: publicOrg._id } : "skip");
+  const publicOrg = useQuery(api.organizations.getPublic, !user ? { slug: orgSlug || "my-church" } : "skip");
 
   const displayOrg = user ? organization : publicOrg;
-  const displaySettings = user ? settings : publicSettings;
+  const displaySettings = settings;
 
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 5;
@@ -380,6 +382,7 @@ export function AboutChurchPage() {
 }
 
 export function SystemStatsPage() {
+  const { orgSlug } = useParams<{ orgSlug: string }>();
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
 
@@ -400,7 +403,7 @@ export function SystemStatsPage() {
             You do not have the administrative permissions required to view system statistics and audit logs.
           </p>
           <Button asChild variant="outline">
-            <Link to="/">Return to Dashboard</Link>
+            <Link to={`/${orgSlug}/dashboard`}>Return to Dashboard</Link>
           </Button>
         </div>
       </Layout>
@@ -590,7 +593,8 @@ export function SystemStatsPage() {
 }
 
 export function ServiceSchedulePage() {
-  const serviceSchedule = useQuery(api.services.list) || [];
+  const { orgSlug } = useParams<{ orgSlug: string }>();
+  const serviceSchedule = useQuery(api.services.list, { orgSlug }) || [];
 
   return (
     <Layout>
@@ -630,12 +634,12 @@ export function ServiceSchedulePage() {
     </Layout>
   );
 }
-
 export function EventsPage() {
+  const { orgSlug } = useParams<{ orgSlug: string }>();
   const { user } = useAuth();
   const { viewMode } = useViewMode();
   const ministryIds = user?.ministryIds ?? [];
-  const events = useQuery(api.events.list) || [];
+  const events = useQuery(api.events.list, { orgSlug }) || [];
   const isLeader = (user?.role === "leader" || user?.role === "admin") && viewMode === "leader";
   const [showCreateEvent, setShowCreateEvent] = useState(false);
   const myRsvps = useQuery(api.events.getUserRsvps, user?._id ? { memberId: user._id as any } : "skip") || [];
@@ -680,7 +684,7 @@ export function EventsPage() {
           gradient="gradient-member"
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+        <div className="grid grid-cols-1 gap-4 md:gap-6">
           <DashboardCard title="Featured Events" description="This month" icon={<Calendar className="h-5 w-5 text-primary" />} gradient="gradient-member">
             <div className="space-y-3">
               {filteredEvents.length === 0 ? (
@@ -722,11 +726,7 @@ export function EventsPage() {
                 </div>
               </div>
             </div>
-          )}   <DashboardCard title="Volunteer Opportunities" icon={<Users className="h-5 w-5 text-primary" />} gradient="gradient-member">
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">No volunteer opportunities yet.</p>
-            </div>
-          </DashboardCard>
+          )}
         </div>
       </div>
     </Layout>
@@ -734,7 +734,8 @@ export function EventsPage() {
 }
 
 export function BulletinsPage() {
-  const bulletins = useQuery(api.bulletins.listBulletins) || [];
+  const { orgSlug } = useParams<{ orgSlug: string }>();
+  const bulletins = useQuery(api.bulletins.listBulletins, { orgSlug }) || [];
 
   return (
     <Layout>
@@ -809,8 +810,9 @@ export function BibleReadingPage() {
 }
 
 export function AnnouncementsPage() {
+  const { orgSlug } = useParams<{ orgSlug: string }>();
   const { user } = useAuth();
-  const announcements = useQuery(api.bulletins.listAnnouncements) || [];
+  const announcements = useQuery(api.bulletins.listAnnouncements, { orgSlug }) || [];
   const ministryIds = user?.ministryIds ?? [];
 
   // Filter announcements based on ministry
@@ -856,8 +858,9 @@ export function AnnouncementsPage() {
 }
 
 export function GivingPage() {
+  const { orgSlug } = useParams<{ orgSlug: string }>();
   const { user } = useAuth();
-  const givingOptions = useQuery(api.giving_options.list) || [];
+  const givingOptions = useQuery(api.giving_options.list, { orgSlug }) || [];
   const transactions = useQuery(api.givingTransactions.listByUser, user?._id ? {} : "skip");
   const [selectedGiving, setSelectedGiving] = useState<any>(null);
 
@@ -930,7 +933,7 @@ export function GivingPage() {
                 )}
                 {transactions && transactions.length > 5 && (
                   <Button variant="ghost" size="sm" className="w-full text-xs" asChild>
-                    <Link to="/transaction-history">View All History</Link>
+                    <Link to={`/${orgSlug}/transaction-history`}>View All History</Link>
                   </Button>
                 )}
               </div>
@@ -948,7 +951,7 @@ export function GivingPage() {
                 </p>
                 <div className="flex flex-col gap-2">
                   <Button asChild variant="outline" size="sm">
-                    <Link to="/login">Sign in to track your giving</Link>
+                    <Link to={`/${orgSlug}/login`}>Sign in to track your giving</Link>
                   </Button>
                 </div>
               </div>
@@ -976,7 +979,7 @@ export function MinistryStatsPage() {
     m.ministryIds?.some(id => ministryIds.includes(id))
   );
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalSysDate();
   const upcomingEvents = events.filter(e => e.date >= today && ministryIds.includes(e.ministryId));
 
   const totalMembers = ministryMembers.length;
@@ -1026,9 +1029,10 @@ export function MinistryStatsPage() {
 }
 
 export function ManageEventsPage() {
+  const { orgSlug } = useParams<{ orgSlug: string }>();
   const { user } = useAuth();
   const isLeader = user?.role === "leader" || user?.role === "admin";
-  const events = useQuery(api.events.list) || [];
+  const events = useQuery(api.events.list, { orgSlug }) || [];
   const createEvent = useMutation(api.events.createEvent);
   const updateEvent = useMutation(api.events.updateEvent);
   const deleteEvent = useMutation(api.events.deleteEvent);
@@ -1074,7 +1078,7 @@ export function ManageEventsPage() {
           gradient="gradient-leader"
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+        <div className="grid grid-cols-1 gap-4 md:gap-6">
           <DashboardCard title="Event Pipeline" icon={<Calendar className="h-5 w-5 text-primary" />} gradient="gradient-leader">
             <div className="space-y-3">
               <div className="flex justify-between items-center mb-4">
@@ -1133,9 +1137,6 @@ export function ManageEventsPage() {
             </div>
           </DashboardCard>
 
-          <DashboardCard title="Planning Checklist" icon={<ClipboardList className="h-5 w-5 text-primary" />} gradient="gradient-leader">
-            <p className="text-sm text-muted-foreground">No checklist items yet.</p>
-          </DashboardCard>
         </div>
       </div>
     </Layout>
@@ -1143,10 +1144,11 @@ export function ManageEventsPage() {
 }
 
 export function ManageBulletinsPage() {
+  const { orgSlug } = useParams<{ orgSlug: string }>();
   const { user } = useAuth();
   const isLeader = user?.role === "leader" || user?.role === "admin";
-  const bulletins = useQuery(api.bulletins.listBulletins) || [];
-  const announcements = useQuery(api.bulletins.listAnnouncements) || [];
+  const bulletins = useQuery(api.bulletins.listBulletins, { orgSlug }) || [];
+  const announcements = useQuery(api.bulletins.listAnnouncements, { orgSlug }) || [];
   const createBulletin = useMutation(api.bulletins.createBulletin);
   const deleteBulletin = useMutation(api.bulletins.deleteBulletin);
   const createAnnouncement = useMutation(api.bulletins.createAnnouncement);
@@ -1337,6 +1339,7 @@ export function ManageBulletinsPage() {
 }
 
 export function MembersPage() {
+  const { orgSlug } = useParams<{ orgSlug: string }>();
   const { user } = useAuth();
   const members = useQuery(api.users.getMemberDirectory) || [];
   const navigate = useNavigate();
@@ -1412,7 +1415,7 @@ export function MembersPage() {
 
           <DashboardCard title="Care Actions" icon={<Heart className="h-5 w-5 text-accent" />} gradient="gradient-leader">
             <div className="space-y-2">
-              <Button size="sm" className="w-full" onClick={() => navigate('/follow-ups')}>Add Follow-up</Button>
+              <Button size="sm" className="w-full" onClick={() => navigate(`/${orgSlug}/follow-ups`)}>Add Follow-up</Button>
               <Button size="sm" variant="outline" className="w-full" onClick={() => alert('Assign Shepherd feature coming soon!')}>Assign Shepherd</Button>
               <Button size="sm" variant="outline" className="w-full" onClick={() => alert('Send Message feature coming soon!')}>Send Message</Button>
             </div>
@@ -1553,12 +1556,17 @@ export function ReportsPage() {
   const { user } = useAuth();
   const members = useQuery(api.users.getMemberDirectory) || [];
   const events = useQuery(api.events.list) || [];
+  const services = useQuery(api.services.list) || [];
+  const [attendanceDate, setAttendanceDate] = useState(getLocalSysDate());
+  const isLeaderUser = user?.role === "leader" || user?.role === "admin";
+  const dailyAttendance = useQuery(api.attendance.getDailyAttendance, isLeaderUser ? { date: attendanceDate } : "skip") || [];
   const ministryIds = user?.ministryIds ?? [];
 
-  const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
   const [attendanceEvent, setAttendanceEvent] = useState<string>("");
   const [attendanceFormat, setAttendanceFormat] = useState<"csv" | "pdf">("csv");
   const [memberFormat, setMemberFormat] = useState<"csv" | "pdf">("csv");
+  const [birthdayMonth, setBirthdayMonth] = useState<string>((new Date().getMonth() + 1).toString().padStart(2, '0'));
+  const [birthdayFormat, setBirthdayFormat] = useState<"csv" | "pdf">("csv");
 
   // Filter members under this leader's ministry
   const ministryMembers = members.filter(m =>
@@ -1568,17 +1576,36 @@ export function ReportsPage() {
   // Filter events for selected date
   const eventsForDate = events.filter(event => event.date === attendanceDate);
 
+  // Filter services for the day of the week
+  const dayOfWeek = new Date(attendanceDate + "T00:00:00").toLocaleDateString('en-US', { weekday: 'long' });
+  const servicesForDate = services.filter(s => s.day === dayOfWeek);
+
   const handleExportAttendance = () => {
     if (attendanceFormat === "csv") {
       // CSV Export logic
       const headers = ["Name", "Email", "Status", "Date", "Event"];
-      const rows = ministryMembers.map(m => [
-        m.name,
-        m.email,
-        "Present", // This would come from actual attendance data
-        attendanceDate,
-        attendanceEvent ? eventsForDate.find(e => e._id === attendanceEvent)?.title || "" : "General"
-      ]);
+      const rows = ministryMembers.map(m => {
+        const record = dailyAttendance.find((r: any) => {
+          const isMember = r.memberId === m._id;
+          let isEventMatch = false;
+          if (!attendanceEvent) {
+            isEventMatch = !r.eventId && !r.serviceId;
+          } else if (attendanceEvent.startsWith("event:")) {
+            isEventMatch = r.eventId === attendanceEvent.replace("event:", "");
+          } else if (attendanceEvent.startsWith("service:")) {
+            isEventMatch = r.serviceId === attendanceEvent.replace("service:", "");
+          }
+          return isMember && isEventMatch;
+        });
+
+        return [
+          m.name,
+          m.email,
+          record ? (record.status === "present" ? "Present" : "Absent") : "Not Marked",
+          attendanceDate,
+          attendanceEvent ? eventsForDate.find(e => e._id === attendanceEvent)?.title || "" : "General"
+        ];
+      });
 
       const csvContent = [headers, ...rows].map(row => row.join(",")).join("\n");
       const blob = new Blob([csvContent], { type: "text/csv" });
@@ -1618,6 +1645,39 @@ export function ReportsPage() {
     }
   };
 
+  const handleExportBirthdays = () => {
+    if (birthdayFormat === "csv") {
+      const filteredMembers = ministryMembers.filter(m => {
+        if (!m.birthday) return false;
+        // Handle YYYY-MM-DD or MM/DD/YYYY formats
+        const parts = m.birthday.includes("-") ? m.birthday.split("-") : m.birthday.split("/");
+        // Assuming YYYY-MM-DD, so month is at index 1
+        const monthPart = m.birthday.includes("-") ? parts[1] : parts[0]; 
+        return monthPart === birthdayMonth;
+      });
+
+      const headers = ["Name", "Email", "Contact", "Birthday", "Ministries"];
+      const rows = filteredMembers.map(m => [
+        `"${m.name}"`,
+        `"${m.email || ""}"`,
+        `"${m.contactNumber || ""}"`,
+        `"${m.birthday || ""}"`,
+        m.ministryIds?.length || 0
+      ]);
+
+      const csvContent = [headers, ...rows].map(row => row.join(",")).join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `birthdays_month_${birthdayMonth}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } else {
+      alert("PDF export coming soon!");
+    }
+  };
+
   return (
     <Layout>
       <div className="space-y-6 animate-fade-in">
@@ -1627,7 +1687,7 @@ export function ReportsPage() {
           gradient="gradient-leader"
         />
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
           {/* Attendance Export Card */}
           <Card className="glass-strong border-0 rounded-2xl">
             <CardHeader>
@@ -1651,7 +1711,7 @@ export function ReportsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="att-event">Select Event (Optional)</Label>
+                  <Label htmlFor="att-event">Select Event or Service (Optional)</Label>
                   <select
                     id="att-event"
                     value={attendanceEvent}
@@ -1659,9 +1719,20 @@ export function ReportsPage() {
                     className="w-full px-3 py-2 rounded-md border bg-background text-sm"
                   >
                     <option value="">All / General Attendance</option>
-                    {eventsForDate.map(event => (
-                      <option key={event._id} value={event._id}>{event.title}</option>
-                    ))}
+                    {servicesForDate.length > 0 && (
+                      <optgroup label="Global Services">
+                        {servicesForDate.map(service => (
+                          <option key={service._id} value={`service:${service._id}`}>{service.name}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {eventsForDate.length > 0 && (
+                      <optgroup label="Ministry Events">
+                        {eventsForDate.map(event => (
+                          <option key={event._id} value={`event:${event._id}`}>{event.title}</option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                 </div>
 
@@ -1748,6 +1819,82 @@ export function ReportsPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Birthdays Export Card */}
+          <Card className="glass-strong border-0 rounded-2xl">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <Heart className="h-4 w-4 text-primary" /> Birthdays Export
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="bday-month">Select Month</Label>
+                  <select
+                    id="bday-month"
+                    value={birthdayMonth}
+                    onChange={(e) => setBirthdayMonth(e.target.value)}
+                    className="w-full px-3 py-2 rounded-md border bg-background text-sm"
+                  >
+                    <option value="01">January</option>
+                    <option value="02">February</option>
+                    <option value="03">March</option>
+                    <option value="04">April</option>
+                    <option value="05">May</option>
+                    <option value="06">June</option>
+                    <option value="07">July</option>
+                    <option value="08">August</option>
+                    <option value="09">September</option>
+                    <option value="10">October</option>
+                    <option value="11">November</option>
+                    <option value="12">December</option>
+                  </select>
+                </div>
+
+                <div className="p-4 rounded-xl glass-subtle">
+                  <p className="text-xs text-muted-foreground mb-1">Birthdays this Month</p>
+                  <p className="text-2xl font-bold text-primary">
+                    {ministryMembers.filter(m => {
+                      if (!m.birthday) return false;
+                      const parts = m.birthday.includes("-") ? m.birthday.split("-") : m.birthday.split("/");
+                      const monthPart = m.birthday.includes("-") ? parts[1] : parts[0]; 
+                      return monthPart === birthdayMonth;
+                    }).length}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Export Format</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant={birthdayFormat === "csv" ? "default" : "outline"}
+                      onClick={() => setBirthdayFormat("csv")}
+                      className="flex-1"
+                    >
+                      CSV
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={birthdayFormat === "pdf" ? "default" : "outline"}
+                      onClick={() => setBirthdayFormat("pdf")}
+                      className="flex-1"
+                    >
+                      PDF
+                    </Button>
+                  </div>
+                </div>
+
+                <Button
+                  className="w-full"
+                  onClick={handleExportBirthdays}
+                >
+                  Export Birthdays
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </Layout>
@@ -1775,7 +1922,7 @@ export function AttendancePage() {
   const services = useQuery(api.services.list) || [];
 
   // State management
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(getLocalSysDate());
   const [selectedEvent, setSelectedEvent] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"mark" | "saved" | "newcomers">("mark");
   const [newcomerAttendance, setNewcomerAttendance] = useState<Record<string, "present" | "absent" | "">>({});
@@ -1785,6 +1932,12 @@ export function AttendancePage() {
   const isLeaderUser = user?.role === "leader" || user?.role === "admin";
   // Fetch confirmed attendance for the date
   const dailyAttendance = useQuery(api.attendance.getDailyAttendance, isLeaderUser ? { date: selectedDate } : "skip") || [];
+
+  // Reset local attendance state when date or event changes
+  useEffect(() => {
+    setAttendance({});
+    setNewcomerAttendance({});
+  }, [selectedDate, selectedEvent]);
 
   const setStatus = (memberId: string, status: "present" | "absent") => {
     setAttendance((prev) => ({ ...prev, [memberId]: prev[memberId] === status ? "" : status }));
@@ -1810,33 +1963,34 @@ export function AttendancePage() {
 
   const uniqueDailyAttendance = useMemo(() => {
     const seen = new Set<string>();
-    return dailyAttendance.filter(r => {
+    const unique = dailyAttendance.filter(r => {
       const idStr = r._id.toString();
       if (seen.has(idStr)) return false;
       seen.add(idStr);
       return true;
     });
-  }, [dailyAttendance]);
+
+    // Filter by selected event matching the Mark Attendance filter
+    return unique.filter(r => {
+      if (!selectedEvent) return !r.eventId && !r.serviceId;
+      if (selectedEvent.startsWith("event:")) {
+        return r.eventId === selectedEvent.replace("event:", "");
+      }
+      if (selectedEvent.startsWith("service:")) {
+        return r.serviceId === selectedEvent.replace("service:", "");
+      }
+      return true;
+    });
+  }, [dailyAttendance, selectedEvent]);
 
   // Create map for easy lookup, filtered by currently selected event/service
   const confirmedAttendance = useMemo(() => {
     const map: Record<string, any> = {};
     uniqueDailyAttendance.forEach((r: any) => {
-      let isMatch = false;
-      if (!selectedEvent) {
-        isMatch = !r.eventId && !r.serviceId;
-      } else if (selectedEvent.startsWith("event:")) {
-        isMatch = r.eventId === selectedEvent.replace("event:", "");
-      } else if (selectedEvent.startsWith("service:")) {
-        isMatch = r.serviceId === selectedEvent.replace("service:", "");
-      }
-
-      if (isMatch) {
-        map[r.memberId] = r;
-      }
+      map[r.memberId] = r;
     });
     return map;
-  }, [uniqueDailyAttendance, selectedEvent]);
+  }, [uniqueDailyAttendance]);
 
   // Filter members not yet saved/confirmed for THIS activity
   const unsavedMembers = uniqueMembers.filter(m => !confirmedAttendance[m._id]);
@@ -1856,6 +2010,10 @@ export function AttendancePage() {
   const unsavedNewcomers = uniqueNewcomers.filter(n => !confirmedAttendance[n._id]);
 
   const handleSaveAttendance = async () => {
+    if (!selectedEvent) {
+      alert("Please select an event or service first.");
+      return;
+    }
     setSaving(true);
     try {
       for (const [memberId, status] of Object.entries(attendance)) {
@@ -1889,6 +2047,10 @@ export function AttendancePage() {
   };
 
   const handleFinalAttendance = async () => {
+    if (!selectedEvent) {
+      alert("Please select an event or service first.");
+      return;
+    }
     if (!confirm("This will mark all unmarked members as absent and save all attendance. Continue?")) {
       return;
     }
@@ -2009,14 +2171,17 @@ export function AttendancePage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="event">Event or Service (Optional)</Label>
+                <Label htmlFor="event" className="flex items-center gap-1">
+                  Event or Service <span className="text-destructive font-bold">*</span>
+                </Label>
                 <select
                   id="event"
                   value={selectedEvent}
                   onChange={(e) => setSelectedEvent(e.target.value)}
-                  className="w-full px-3 py-2 rounded-md border bg-background text-sm"
+                  className={`w-full px-3 py-2 rounded-md border text-sm ${!selectedEvent ? 'border-destructive ring-1 ring-destructive/20' : 'bg-background'}`}
+                  required
                 >
-                  <option value="">No specific event</option>
+                  <option value="">-- SELECT REQUIRED --</option>
                   {servicesForDate.length > 0 && (
                     <optgroup label="Global Services">
                       {servicesForDate.map(service => (
@@ -2059,7 +2224,7 @@ export function AttendancePage() {
           >
             <span className="hidden sm:inline">Saved Attendance</span>
             <span className="sm:hidden">Saved</span>
-            <span className="ml-1">({dailyAttendance.length})</span>
+            <span className="ml-1">({uniqueDailyAttendance.length})</span>
           </button>
           <button
             onClick={() => setActiveTab("newcomers")}
@@ -2273,8 +2438,7 @@ export function ManageUsersPage() {
   const updateUserRole = useAction(api.clerk.updateRole);
   const toggleFinanceAccess = useMutation(api.users.toggleFinanceAccess);
   const deleteUser = useMutation(api.users.deleteUser);
-  const syncUsers = useAction(api.clerk.sync);
-  const [isSyncing, setIsSyncing] = useState(false);
+
 
   // Add User State
   const createOfflineUser = useMutation(api.users.createOfflineUser);
@@ -2393,12 +2557,12 @@ export function ManageUsersPage() {
                           <TableCell>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-8 text-xs px-2 my-1 font-normal">
+                                <Button variant="ghost" size="sm" className={`h-8 text-xs px-2 my-1 font-normal rounded-full ${roleBadgeStyles[u.role as UserRole]}`}>
                                   {u.role.charAt(0).toUpperCase() + u.role.slice(1)} <ChevronDown className="ml-1 h-3 w-3 opacity-50" />
                                 </Button>
                               </DropdownMenuTrigger>
                               {u.isFinance && (
-                                <span className="ml-2 text-[10px] bg-blue-500/10 text-blue-500 px-1.5 py-0.5 rounded-full font-medium border border-blue-500/20">
+                                <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${roleBadgeStyles.finance}`}>
                                   Finance Access
                                 </span>
                               )}
@@ -2501,25 +2665,7 @@ export function ManageUsersPage() {
           <Card className="glass-strong border-0 rounded-2xl shrink-0">
             <CardContent className="p-4 flex flex-wrap gap-2 items-center justify-between">
               <div className="flex gap-2 w-full overflow-x-auto pb-1 sm:pb-0 sm:w-auto">
-                <Button
-                  size="sm"
-                  variant="default"
-                  disabled={isSyncing}
-                  onClick={async () => {
-                    setIsSyncing(true);
-                    try {
-                      const stats = await syncUsers();
-                      alert(`Synced! Updated: ${stats.updated}, Created: ${stats.created}, Deactivated: ${stats.deactivated}`);
-                    } catch (e: any) {
-                      alert(`Sync failed: ${e.message}`);
-                    } finally {
-                      setIsSyncing(false);
-                    }
-                  }}
-                >
-                  <RefreshCw className={`h-4 w-4 mr-1 ${isSyncing ? 'animate-spin' : ''}`} />
-                  {isSyncing ? "Syncing..." : "Sync w/ Clerk"}
-                </Button>
+
                 <Button size="sm" variant="outline" onClick={() => setShowAddUser(true)}>
                   <UserPlus className="h-4 w-4 mr-1" /> Add User
                 </Button>
@@ -3192,7 +3338,8 @@ export function MinistriesPage() {
 }
 
 export function OnboardingMaintenancePage() {
-  const steps = useQuery(api.onboarding.listSteps) || [];
+  const { orgSlug } = useParams<{ orgSlug: string }>();
+  const steps = useQuery(api.onboarding.listSteps, { orgSlug }) || [];
   const addStepMutation = useMutation(api.onboarding.addStep);
   const updateStepMutation = useMutation(api.onboarding.updateStep);
   const deleteStepMutation = useMutation(api.onboarding.deleteStep);
@@ -3206,7 +3353,7 @@ export function OnboardingMaintenancePage() {
 
   const handleAddStep = () => {
     if (!title.trim()) return;
-    addStepMutation({ title: title.trim(), description: desc.trim() })
+    addStepMutation({ title: title.trim(), description: desc.trim(), orgSlug })
       .then(() => {
         setTitle("");
         setDesc("");
@@ -3404,7 +3551,8 @@ export function OnboardingMaintenancePage() {
 }
 
 export function ScheduleMaintenancePage() {
-  const services = useQuery(api.services.list) || [];
+  const { orgSlug } = useParams<{ orgSlug: string }>();
+  const services = useQuery(api.services.list, { orgSlug }) || [];
   const addServiceMutation = useMutation(api.services.create);
   const updateServiceMutation = useMutation(api.services.update);
   const deleteServiceMutation = useMutation(api.services.deleteService);
@@ -3428,7 +3576,8 @@ export function ScheduleMaintenancePage() {
       name: name.trim(),
       day: day.trim(),
       time: time.trim(),
-      location: location.trim()
+      location: location.trim(),
+      orgSlug: orgSlug // Crucial for multi-tenant safety
     })
       .then(() => {
         setName("");
@@ -3601,7 +3750,8 @@ export function ScheduleMaintenancePage() {
 }
 
 export function GivingMaintenancePage() {
-  const givingOptions = useQuery(api.giving_options.list) || [];
+  const { orgSlug } = useParams<{ orgSlug: string }>();
+  const givingOptions = useQuery(api.giving_options.list, { orgSlug }) || [];
   const createGivingOption = useMutation(api.giving_options.create);
   const updateGivingOption = useMutation(api.giving_options.update);
   const deleteGivingOption = useMutation(api.giving_options.remove);
@@ -3631,7 +3781,7 @@ export function GivingMaintenancePage() {
       storageId = id;
     }
 
-    createGivingOption({ label, description, storageId })
+    createGivingOption({ label, description, storageId, orgSlug })
       .then(() => {
         setLabel("");
         setDescription("");
