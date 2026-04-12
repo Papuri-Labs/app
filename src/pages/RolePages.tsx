@@ -380,6 +380,7 @@ export function AboutChurchPage() {
 }
 
 export function SystemStatsPage() {
+  const { orgSlug } = useParams<{ orgSlug: string }>();
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
 
@@ -400,7 +401,7 @@ export function SystemStatsPage() {
             You do not have the administrative permissions required to view system statistics and audit logs.
           </p>
           <Button asChild variant="outline">
-            <Link to="/">Return to Dashboard</Link>
+            <Link to={`/${orgSlug}/dashboard`}>Return to Dashboard</Link>
           </Button>
         </div>
       </Layout>
@@ -930,7 +931,7 @@ export function GivingPage() {
                 )}
                 {transactions && transactions.length > 5 && (
                   <Button variant="ghost" size="sm" className="w-full text-xs" asChild>
-                    <Link to="/transaction-history">View All History</Link>
+                    <Link to={`/${orgSlug}/transaction-history`}>View All History</Link>
                   </Button>
                 )}
               </div>
@@ -948,7 +949,7 @@ export function GivingPage() {
                 </p>
                 <div className="flex flex-col gap-2">
                   <Button asChild variant="outline" size="sm">
-                    <Link to="/login">Sign in to track your giving</Link>
+                    <Link to={`/${orgSlug}/login`}>Sign in to track your giving</Link>
                   </Button>
                 </div>
               </div>
@@ -1336,6 +1337,7 @@ export function ManageBulletinsPage() {
 }
 
 export function MembersPage() {
+  const { orgSlug } = useParams<{ orgSlug: string }>();
   const { user } = useAuth();
   const members = useQuery(api.users.getMemberDirectory) || [];
   const navigate = useNavigate();
@@ -1411,7 +1413,7 @@ export function MembersPage() {
 
           <DashboardCard title="Care Actions" icon={<Heart className="h-5 w-5 text-accent" />} gradient="gradient-leader">
             <div className="space-y-2">
-              <Button size="sm" className="w-full" onClick={() => navigate('/follow-ups')}>Add Follow-up</Button>
+              <Button size="sm" className="w-full" onClick={() => navigate(`/${orgSlug}/follow-ups`)}>Add Follow-up</Button>
               <Button size="sm" variant="outline" className="w-full" onClick={() => alert('Assign Shepherd feature coming soon!')}>Assign Shepherd</Button>
               <Button size="sm" variant="outline" className="w-full" onClick={() => alert('Send Message feature coming soon!')}>Send Message</Button>
             </div>

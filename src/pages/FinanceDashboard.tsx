@@ -6,9 +6,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Heart, TrendingUp, Users, ClipboardList } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 export default function FinanceDashboard() {
+    const { orgSlug } = useParams<{ orgSlug: string }>();
     const { user } = useAuth();
 
     // Get giving statistics for the finance user's ministry
@@ -64,13 +65,13 @@ export default function FinanceDashboard() {
                     gradient="gradient-newcomer"
                 >
                     <div className="flex flex-wrap gap-3">
-                        <Link to="/record-giving">
+                        <Link to={`/${orgSlug}/record-giving`}>
                             <Button className="gap-2">
                                 <Heart className="h-4 w-4" />
                                 Record New Transaction
                             </Button>
                         </Link>
-                        <Link to="/transaction-history">
+                        <Link to={`/${orgSlug}/transaction-history`}>
                             <Button variant="outline" className="gap-2">
                                 <ClipboardList className="h-4 w-4" />
                                 View All Transactions
