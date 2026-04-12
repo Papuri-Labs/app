@@ -5,12 +5,13 @@ import { Button } from "@/components/ui/button";
 import { BarChart3, Users, Shield, Settings, Database, Activity } from "lucide-react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { ComingSoonDialog } from "@/components/ComingSoonDialog";
 
 import { useState } from "react";
 
 export default function AdminDashboard() {
+  const { orgSlug } = useParams<{ orgSlug: string }>();
   const navigate = useNavigate();
   const allUsers = useQuery(api.users.getAdminDirectory) || [];
   const ministries = useQuery(api.ministries.list) || [];
@@ -108,7 +109,7 @@ export default function AdminDashboard() {
                 </>
               )}
             </div>
-            <Button variant="outline" size="sm" className="mt-3 w-full" onClick={() => navigate("/manage-users")}>Manage All Users</Button>
+            <Button variant="outline" size="sm" className="mt-3 w-full" onClick={() => navigate(`/${orgSlug}/manage-users`)}>Manage All Users</Button>
           </DashboardCard>
 
           <DashboardCard title="Roles & Permissions" description="User distribution by role" icon={<Shield className="h-5 w-5 text-primary" />} gradient="gradient-admin">
@@ -130,15 +131,15 @@ export default function AdminDashboard() {
                 ))
               )}
             </div>
-            <Button variant="outline" size="sm" className="mt-3" onClick={() => navigate("/roles")}>Manage Roles</Button>
+            <Button variant="outline" size="sm" className="mt-3" onClick={() => navigate(`/${orgSlug}/roles`)}>Manage Roles</Button>
           </DashboardCard>
 
 
           <DashboardCard title="Quick Actions" icon={<Settings className="h-5 w-5 text-primary" />} gradient="gradient-admin">
             <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" size="sm" className="justify-start" onClick={() => navigate("/manage-users")}>Add User</Button>
-              <Button variant="outline" size="sm" className="justify-start" onClick={() => navigate("/manage-bulletins")}>Manage Bulletins</Button>
-              <Button variant="outline" size="sm" className="justify-start" onClick={() => navigate("/ministries")}>Manage Ministries</Button>
+              <Button variant="outline" size="sm" className="justify-start" onClick={() => navigate(`/${orgSlug}/manage-users`)}>Add User</Button>
+              <Button variant="outline" size="sm" className="justify-start" onClick={() => navigate(`/${orgSlug}/manage-bulletins`)}>Manage Bulletins</Button>
+              <Button variant="outline" size="sm" className="justify-start" onClick={() => navigate(`/${orgSlug}/ministries`)}>Manage Ministries</Button>
               <ComingSoonDialog>
                 <Button variant="outline" size="sm" className="justify-start w-full">Export Data</Button>
               </ComingSoonDialog>
