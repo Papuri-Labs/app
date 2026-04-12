@@ -15,7 +15,6 @@ import { Loader2, MessageSquareHeart } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
 import { Id } from "../../convex/_generated/dataModel";
-import { Layout } from "@/components/Layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { AlertCircle } from "lucide-react";
@@ -52,7 +51,7 @@ export default function PrayerRequestsPage() {
 
     if (!isUserLeader) {
         return (
-            <Layout>
+            <>
                 <div className="flex flex-col items-center justify-center p-8 h-[60vh] space-y-4 animate-fade-in">
                     <div className="bg-destructive/10 p-4 rounded-full">
                         <AlertCircle className="h-12 w-12 text-destructive" />
@@ -65,17 +64,17 @@ export default function PrayerRequestsPage() {
                         </p>
                     </div>
                 </div>
-            </Layout>
+            </>
         );
     }
 
     if (requests === undefined) {
         return (
-            <Layout>
+            <>
                 <div className="flex items-center justify-center p-8 h-[60vh]">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
-            </Layout>
+            </>
         );
     }
 
@@ -156,7 +155,7 @@ export default function PrayerRequestsPage() {
     };
 
     return (
-        <Layout>
+        <>
             <div className="space-y-6 animate-fade-in p-2 md:p-0">
                 {/* Styled Header matching RolePages */}
                 <div className="gradient-leader glass rounded-2xl p-6 relative overflow-hidden">
@@ -183,6 +182,6 @@ export default function PrayerRequestsPage() {
                     </ScrollArea>
                 </Tabs>
             </div>
-        </Layout>
+        </>
     );
 }

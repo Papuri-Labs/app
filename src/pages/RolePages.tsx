@@ -1,4 +1,3 @@
-import { Layout } from "@/components/Layout";
 import { ComingSoonDialog } from "@/components/ComingSoonDialog";
 import { LeaderContactDialog } from "@/components/LeaderContactDialog";
 import { DashboardCard } from "@/components/DashboardCard";
@@ -152,7 +151,7 @@ export function NewcomerOnboardingPage() {
   };
 
   return (
-    <Layout>
+    <>
       <div className="space-y-6 animate-fade-in">
         <PageHeader
           title="Onboarding Journey"
@@ -230,7 +229,7 @@ export function NewcomerOnboardingPage() {
           </DashboardCard>
         </div>
       </div>
-    </Layout>
+    </>
   );
 }
 
@@ -256,7 +255,7 @@ export function AboutChurchPage() {
   const socialLinks = displaySettings?.socialLinks;
 
   return (
-    <Layout>
+    <>
       <div className="space-y-6 animate-fade-in">
         <PageHeader
           title={`About ${displayOrg?.name || "Our Church"}`}
@@ -377,7 +376,7 @@ export function AboutChurchPage() {
           </DashboardCard>
         </div>
       </div>
-    </Layout>
+    </>
   );
 }
 
@@ -395,7 +394,7 @@ export function SystemStatsPage() {
 
   if (user && !isAdmin) {
     return (
-      <Layout>
+      <>
         <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4">
           <Shield className="h-16 w-16 text-destructive opacity-50" />
           <h2 className="text-2xl font-bold">Access Denied</h2>
@@ -406,7 +405,7 @@ export function SystemStatsPage() {
             <Link to={`/${orgSlug}/dashboard`}>Return to Dashboard</Link>
           </Button>
         </div>
-      </Layout>
+      </>
     );
   }
 
@@ -442,7 +441,7 @@ export function SystemStatsPage() {
   }));
 
   return (
-    <Layout>
+    <>
       <div className="space-y-6 animate-fade-in">
         <PageHeader
           title="System Statistics"
@@ -588,7 +587,7 @@ export function SystemStatsPage() {
           </>
         )}
       </div>
-    </Layout>
+    </>
   );
 }
 
@@ -597,7 +596,7 @@ export function ServiceSchedulePage() {
   const serviceSchedule = useQuery(api.services.list, { orgSlug }) || [];
 
   return (
-    <Layout>
+    <>
       <div className="space-y-6 animate-fade-in">
         <PageHeader
           title="Service Schedule"
@@ -631,7 +630,7 @@ export function ServiceSchedulePage() {
           </DashboardCard>
         </div>
       </div>
-    </Layout>
+    </>
   );
 }
 export function EventsPage() {
@@ -676,7 +675,7 @@ export function EventsPage() {
   };
 
   return (
-    <Layout>
+    <>
       <div className="space-y-6 animate-fade-in">
         <PageHeader
           title="Church Events"
@@ -729,7 +728,7 @@ export function EventsPage() {
           )}
         </div>
       </div>
-    </Layout>
+    </>
   );
 }
 
@@ -738,7 +737,7 @@ export function BulletinsPage() {
   const bulletins = useQuery(api.bulletins.listBulletins, { orgSlug }) || [];
 
   return (
-    <Layout>
+    <>
       <div className="space-y-6 animate-fade-in">
         <PageHeader
           title="Bulletins"
@@ -769,13 +768,13 @@ export function BulletinsPage() {
           </div>
         </DashboardCard>
       </div>
-    </Layout>
+    </>
   );
 }
 
 export function BibleReadingPage() {
   return (
-    <Layout>
+    <>
       <div className="space-y-6 animate-fade-in">
         <PageHeader
           title="Bible Reading"
@@ -805,7 +804,7 @@ export function BibleReadingPage() {
           </DashboardCard>
         </div>
       </div>
-    </Layout>
+    </>
   );
 }
 
@@ -823,7 +822,7 @@ export function AnnouncementsPage() {
   });
 
   return (
-    <Layout>
+    <>
       <div className="space-y-6 animate-fade-in">
         <PageHeader
           title="Announcements"
@@ -853,7 +852,7 @@ export function AnnouncementsPage() {
           </div>
         </DashboardCard>
       </div>
-    </Layout>
+    </>
   );
 }
 
@@ -865,7 +864,7 @@ export function GivingPage() {
   const [selectedGiving, setSelectedGiving] = useState<any>(null);
 
   return (
-    <Layout>
+    <>
       <div className="space-y-6 animate-fade-in">
         <PageHeader
           title="Giving"
@@ -964,7 +963,7 @@ export function GivingPage() {
           onClose={() => setSelectedGiving(null)}
         />
       </div>
-    </Layout>
+    </>
   );
 }
 
@@ -994,7 +993,7 @@ export function MinistryStatsPage() {
   ];
 
   return (
-    <Layout>
+    <>
       <div className="space-y-6 animate-fade-in">
         <PageHeader
           title="Ministry Statistics"
@@ -1024,7 +1023,7 @@ export function MinistryStatsPage() {
           </DashboardCard>
         </div>
       </div>
-    </Layout>
+    </>
   );
 }
 
@@ -1048,7 +1047,7 @@ export function ManageEventsPage() {
   // Redirect non-leaders AFTER all hooks are declared
   if (!isLeader) {
     return (
-      <Layout>
+      <>
         <div className="space-y-6 animate-fade-in">
           <PageHeader
             title="Access Restricted"
@@ -1056,7 +1055,7 @@ export function ManageEventsPage() {
             gradient="gradient-leader"
           />
         </div>
-      </Layout>
+      </>
     );
   }
 
@@ -1070,7 +1069,7 @@ export function ManageEventsPage() {
   };
 
   return (
-    <Layout>
+    <>
       <div className="space-y-6 animate-fade-in">
         <PageHeader
           title="Manage Events"
@@ -1139,7 +1138,7 @@ export function ManageEventsPage() {
 
         </div>
       </div>
-    </Layout>
+    </>
   );
 }
 
@@ -1174,7 +1173,7 @@ export function ManageBulletinsPage() {
   // Redirect non-leaders content only (hooks declared above)
   if (!isLeader) {
     return (
-      <Layout>
+      <>
         <div className="space-y-6 animate-fade-in">
           <PageHeader
             title="Access Restricted"
@@ -1182,7 +1181,7 @@ export function ManageBulletinsPage() {
             gradient="gradient-leader"
           />
         </div>
-      </Layout>
+      </>
     );
   }
 
@@ -1215,7 +1214,7 @@ export function ManageBulletinsPage() {
   };
 
   return (
-    <Layout>
+    <>
       <div className="space-y-6 animate-fade-in pb-20">
         <PageHeader
           title="Manage Bulletins"
@@ -1334,7 +1333,7 @@ export function ManageBulletinsPage() {
         announcementToEdit={announcementToEdit}
         defaultMinistryId={selectedMinistryId || undefined}
       />
-    </Layout>
+    </>
   );
 }
 
@@ -1368,7 +1367,7 @@ export function MembersPage() {
   };
 
   return (
-    <Layout>
+    <>
       <div className="space-y-6 animate-fade-in">
         <PageHeader
           title="Member Directory"
@@ -1454,7 +1453,7 @@ export function MembersPage() {
           </div>
         )}
       </div>
-    </Layout>
+    </>
   );
 }
 
@@ -1481,7 +1480,7 @@ export function FollowUpsPage() {
   };
 
   return (
-    <Layout>
+    <>
       <div className="space-y-6 animate-fade-in">
         <PageHeader
           title="Follow Ups"
@@ -1548,7 +1547,7 @@ export function FollowUpsPage() {
           </div>
         )}
       </div>
-    </Layout>
+    </>
   );
 }
 
@@ -1679,7 +1678,7 @@ export function ReportsPage() {
   };
 
   return (
-    <Layout>
+    <>
       <div className="space-y-6 animate-fade-in">
         <PageHeader
           title="Reports & Exports"
@@ -1897,7 +1896,7 @@ export function ReportsPage() {
           </Card>
         </div>
       </div>
-    </Layout>
+    </>
   );
 }
 
@@ -2133,7 +2132,7 @@ export function AttendancePage() {
   // Redirect non-leaders AFTER all hooks are declared
   if (!isLeader) {
     return (
-      <Layout>
+      <>
         <div className="space-y-6 animate-fade-in">
           <PageHeader
             title="Access Restricted"
@@ -2141,12 +2140,12 @@ export function AttendancePage() {
             gradient="gradient-leader"
           />
         </div>
-      </Layout>
+      </>
     );
   }
 
   return (
-    <Layout>
+    <>
       <div className="space-y-6 animate-fade-in">
         <PageHeader
           title="Attendance"
@@ -2418,7 +2417,7 @@ export function AttendancePage() {
           </Card>
         )}
       </div>
-    </Layout>
+    </>
   );
 }
 
@@ -2516,7 +2515,7 @@ export function ManageUsersPage() {
   };
 
   return (
-    <Layout>
+    <>
       <div className="space-y-6 animate-fade-in">
         <PageHeader
           title="Manage Users"
@@ -2777,13 +2776,13 @@ export function ManageUsersPage() {
           </div>
         )}
       </div>
-    </Layout>
+    </>
   );
 }
 
 export function RolesPermissionsPage() {
   return (
-    <Layout>
+    <>
       <div className="space-y-6 animate-fade-in">
         <PageHeader
           title="Roles & Permissions"
@@ -2831,7 +2830,7 @@ export function RolesPermissionsPage() {
           </CardContent>
         </Card>
       </div>
-    </Layout>
+    </>
   );
 }
 
@@ -2914,16 +2913,16 @@ export function SettingsPage() {
 
   if (backendSettings === undefined || (user?.organizationId && organization === undefined)) {
     return (
-      <Layout>
+      <>
         <div className="flex items-center justify-center h-[50vh]">
           <RefreshCw className="h-8 w-8 animate-spin text-primary" />
         </div>
-      </Layout>
+      </>
     );
   }
 
   return (
-    <Layout>
+    <>
       <div className="space-y-6 animate-fade-in">
         <PageHeader
           title="System Settings"
@@ -3203,7 +3202,7 @@ export function SettingsPage() {
           </DashboardCard>
         </div>
       </div>
-    </Layout>
+    </>
   );
 }
 
@@ -3251,7 +3250,7 @@ export function MinistriesPage() {
   };
 
   return (
-    <Layout>
+    <>
       <div className="space-y-6 animate-fade-in">
         <PageHeader
           title="Ministry Maintenance"
@@ -3333,7 +3332,7 @@ export function MinistriesPage() {
           </DashboardCard>
         </div>
       </div>
-    </Layout>
+    </>
   );
 }
 
@@ -3397,7 +3396,7 @@ export function OnboardingMaintenancePage() {
   };
 
   return (
-    <Layout>
+    <>
       <div className="space-y-6 animate-fade-in">
         <PageHeader
           title="Onboarding Maintenance"
@@ -3546,7 +3545,7 @@ export function OnboardingMaintenancePage() {
           </DashboardCard>
         </div>
       </div>
-    </Layout>
+    </>
   );
 }
 
@@ -3623,7 +3622,7 @@ export function ScheduleMaintenancePage() {
 
 
   return (
-    <Layout>
+    <>
       <div className="space-y-6 animate-fade-in">
         <PageHeader
           title="Service Schedule Maintenance"
@@ -3745,7 +3744,7 @@ export function ScheduleMaintenancePage() {
           </DashboardCard>
         </div >
       </div >
-    </Layout >
+    </>
   );
 }
 
@@ -3835,7 +3834,7 @@ export function GivingMaintenancePage() {
   };
 
   return (
-    <Layout>
+    <>
       <div className="space-y-6 animate-fade-in">
         <PageHeader
           title="Giving Maintenance"
@@ -3944,7 +3943,7 @@ export function GivingMaintenancePage() {
           </DashboardCard>
         </div>
       </div>
-    </Layout>
+    </>
   );
 }
 

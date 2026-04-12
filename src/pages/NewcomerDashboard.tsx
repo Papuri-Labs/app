@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Layout } from "@/components/Layout";
 import { DashboardCard } from "@/components/DashboardCard";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -42,7 +41,7 @@ export default function NewcomerDashboard() {
   };
 
   return (
-    <Layout>
+    <>
       <div className="space-y-6 animate-fade-in pb-20">
         {/* Welcome Header */}
         <div className="gradient-newcomer glass rounded-2xl p-6 relative overflow-hidden">
@@ -184,6 +183,6 @@ export default function NewcomerDashboard() {
         {/* Dialogs */}
         {selectedGiving && <GivingDialog selectedGiving={selectedGiving} onClose={() => setSelectedGiving(null)} />}
       </div>
-    </Layout>
+    </>
   );
 }

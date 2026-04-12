@@ -1,4 +1,3 @@
-import { Layout } from "@/components/Layout";
 import { StatCard } from "@/components/StatCard";
 import { DashboardCard } from "@/components/DashboardCard";
 import { Button } from "@/components/ui/button";
@@ -17,7 +16,7 @@ export default function FinanceDashboard() {
     const recentTransactions = useQuery(api.givingTransactions.listByMinistry, {});
 
     return (
-        <Layout>
+        <>
             <div className="space-y-6 animate-fade-in">
                 {/* Header */}
                 <div className="gradient-newcomer glass rounded-2xl p-6 relative overflow-hidden">
@@ -115,6 +114,6 @@ export default function FinanceDashboard() {
                     )}
                 </DashboardCard>
             </div>
-        </Layout>
+        </>
     );
 }

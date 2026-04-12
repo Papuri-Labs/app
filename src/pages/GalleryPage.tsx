@@ -1,4 +1,3 @@
-import { Layout } from "@/components/Layout";
 import { DashboardCard } from "@/components/DashboardCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -139,7 +138,7 @@ export function GalleryPage() {
     };
 
     return (
-        <Layout>
+        <>
             <div className="space-y-6 animate-fade-in pb-20">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex-1">
@@ -277,7 +276,7 @@ export function GalleryPage() {
                     />
                 )}
             </div>
-        </Layout>
+        </>
     );
 }
 

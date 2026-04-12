@@ -1,4 +1,3 @@
-import { Layout } from "@/components/Layout";
 import { DashboardCard } from "@/components/DashboardCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,7 +72,7 @@ export default function RecordGivingPage() {
     };
 
     return (
-        <Layout>
+        <>
             <div className="space-y-6 animate-fade-in max-w-2xl mx-auto">
                 {/* Header */}
                 <div className="gradient-member glass rounded-2xl p-6 relative overflow-hidden">
@@ -184,6 +183,6 @@ export default function RecordGivingPage() {
                     </form>
                 </DashboardCard>
             </div>
-        </Layout>
+        </>
     );
 }

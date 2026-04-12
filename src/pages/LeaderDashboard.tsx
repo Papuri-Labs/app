@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Layout } from "@/components/Layout";
 import { DashboardCard } from "@/components/DashboardCard";
 import { StatCard } from "@/components/StatCard";
 import { Button } from "@/components/ui/button";
@@ -106,7 +105,7 @@ export default function LeaderDashboard() {
 
 
   return (
-    <Layout>
+    <>
       <div className="space-y-6 animate-fade-in pb-20">
         <div className="gradient-leader glass rounded-2xl p-6 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-44 h-44 rounded-full bg-success/8 -translate-y-1/2 translate-x-1/3 blur-3xl" />
@@ -321,6 +320,6 @@ export default function LeaderDashboard() {
         eventTitle={upcomingEvents.find(e => e._id === selectedEventId)?.title}
       />
 
-    </Layout>
+    </>
   );
 }

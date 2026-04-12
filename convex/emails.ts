@@ -1,5 +1,7 @@
+"use node";
 import { internalAction } from "./_generated/server";
 import { v } from "convex/values";
+import nodemailer from "nodemailer";
 
 export const sendEmail = internalAction({
     args: {
@@ -8,48 +10,44 @@ export const sendEmail = internalAction({
         html: v.string(),
     },
     handler: async (ctx, args) => {
-        const apiKey = process.env.RESEND_API_KEY;
-        const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev"; // Default Resend test domain
+        const email = process.env.GMAIL_EMAIL;
+        const password = process.env.GMAIL_APP_PASSWORD;
         
-        if (!apiKey) {
-            console.warn(`[Resend] Missing RESEND_API_KEY. Email skipped: "${args.subject}"`);
+        if (!email || !password) {
+            console.warn(`[Nodemailer] Missing GMAIL_EMAIL or GMAIL_APP_PASSWORD configurations. Email skipped: "${args.subject}"`);
             return;
         }
 
-        // Resend works best when multiple emails are passed as an array
         const recipientList = Array.isArray(args.to) ? args.to : [args.to];
         
         if (recipientList.length === 0) {
-             console.warn(`[Resend] No recipients provided. Email skipped: "${args.subject}"`);
+             console.warn(`[Nodemailer] No recipients provided. Email skipped: "${args.subject}"`);
              return;
         }
 
         try {
-            console.log(`[Resend] Dispatching email to ${recipientList.join(", ")}: "${args.subject}"`);
-            
-            const response = await fetch("https://api.resend.com/emails", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${apiKey}`
+            // Initiate the SMTP Relay Transport strictly inside the Node execution context
+            const transporter = nodemailer.createTransport({
+                service: "gmail",
+                auth: {
+                    user: email,
+                    pass: password,
                 },
-                body: JSON.stringify({
-                    from: fromEmail,
-                    to: recipientList,
-                    subject: args.subject,
-                    html: args.html,
-                }),
             });
 
-            if (!response.ok) {
-                const text = await response.text();
-                console.error(`[Resend] API rejected the request (Status ${response.status}): ${text}`);
-            } else {
-                const data = await response.json();
-                console.log(`[Resend] Email successfully sent! ID: ${data.id}`);
-            }
+            console.log(`[Nodemailer] Hooking directly into Google SMTP. Dispatching to: ${recipientList.join(", ")} | Subject: "${args.subject}"`);
+            
+            // Blast the payload directly to the inboxes!
+            await transporter.sendMail({
+                from: `"Papuri App" <${email}>`, // It will look like it came officially from Papuri
+                to: recipientList.join(", "),
+                subject: args.subject,
+                html: args.html,
+            });
+
+            console.log(`[Nodemailer] Google accepted the package! Successfully delivered.`);
         } catch (error) {
-            console.error(`[Resend] Network error when attempting to deliver email:`, error);
+            console.error(`[Nodemailer] Fatal network error securely delivering the email payload:`, error);
         }
     },
 });

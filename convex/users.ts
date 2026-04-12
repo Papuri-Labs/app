@@ -44,7 +44,6 @@ export const syncUser = mutation({
             await ctx.db.patch(existingUser._id, {
                 name: args.name,
                 email: args.email,
-                role: args.role as any,
                 isActive: true, // Reactivate if was soft-deleted
             });
 
@@ -126,10 +125,17 @@ export const getUser = query({
                 }
             }
 
+            let orgSlug = "my-church";
+            if (user.organizationId) {
+                const org = await ctx.db.get(user.organizationId);
+                if (org) orgSlug = org.slug;
+            }
+
             return {
                 ...user,
                 ministryNames,
                 isFinance: user.isFinance,
+                orgSlug,
             };
         }
         return null;
@@ -297,14 +303,25 @@ export const internalDeactivateUser = internalMutation({
 });
 // Export list of leaders for the About page
 export const listLeaders = query({
-    args: {},
-    handler: async (ctx) => {
+    args: {
+        orgSlug: v.optional(v.string())
+    },
+    handler: async (ctx, args) => {
         const user = await getAuthUser(ctx);
-        const organizationId = user ? user.organizationId : await getDefaultOrganizationId(ctx);
+        let organizationId = user?.organizationId;
+
+        if (!organizationId) {
+            const slugToLookup = args.orgSlug || "my-church";
+            const org = await ctx.db
+                .query("organizations")
+                .withIndex("by_slug", (q) => q.eq("slug", slugToLookup))
+                .first();
+            organizationId = org?._id ?? await getDefaultOrganizationId(ctx);
+        }
 
         const leaders = await ctx.db
             .query("users")
-            .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
+            .withIndex("by_organization", (q) => q.eq("organizationId", organizationId!))
             .filter(q =>
                 q.and(
                     q.eq(q.field("role"), "leader"),

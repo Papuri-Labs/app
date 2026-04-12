@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Layout } from "@/components/Layout";
 import { DashboardCard } from "@/components/DashboardCard";
 import { StatCard } from "@/components/StatCard";
 import { Button } from "@/components/ui/button";
@@ -99,7 +98,7 @@ export default function MemberDashboard() {
   };
 
   return (
-    <Layout>
+    <>
       <div className="space-y-6 animate-fade-in">
         <div className="gradient-member glass rounded-2xl p-6 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-48 h-48 rounded-full bg-primary/8 -translate-y-1/2 translate-x-1/3 blur-3xl" />
@@ -340,6 +339,6 @@ export default function MemberDashboard() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Layout>
+    </>
   );
 }

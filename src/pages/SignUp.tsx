@@ -10,9 +10,9 @@ export default function SignUp() {
   const { orgSlug: paramSlug } = useParams<{ orgSlug?: string }>();
 
   // Use URL param if it's a real org slug, otherwise recover from sessionStorage/redirect_url
-  const slug = paramSlug && !["login", "signup", "dashboard"].includes(paramSlug)
+  const slug = (paramSlug && !["login", "signup", "dashboard"].includes(paramSlug)
     ? paramSlug
-    : getPersistedOrgSlug();
+    : getPersistedOrgSlug()) || "my-church";
 
   const publicOrg = useQuery(api.organizations.getPublic, { slug: slug || "my-church" });
   const publicSettings = useQuery(api.settings.getPublicBySlug, { slug: slug || "my-church" });

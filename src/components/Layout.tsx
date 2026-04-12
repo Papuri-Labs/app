@@ -46,57 +46,55 @@ export function Layout({ children }: { children: ReactNode }) {
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen w-full gradient-mesh">
-        <AppSidebar />
-        <main className="flex-1 flex flex-col min-w-0">
-          <header className="h-12 sm:h-14 flex items-center border-b px-3 sm:px-4 gap-2 sm:gap-3 glass-strong sticky top-0 z-10">
-            <SidebarLoggingTrigger />
-            <div className="flex-1" />
-            {user?.role !== "admin" && <NotificationBell />}
-            {(viewMode === "member" || viewMode === "newcomer") && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="gap-2 hidden sm:flex"
-                onClick={handleOpenPrayer}
-              >
-                <MessageSquareHeart className="h-4 w-4" />
-                <span className="hidden md:inline">Prayer</span>
-              </Button>
-            )}
-            {/* Mobile Icon Only */}
-            {(viewMode === "member" || viewMode === "newcomer") && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="sm:hidden"
-                onClick={handleOpenPrayer}
-              >
-                <MessageSquareHeart className="h-4 w-4" />
-              </Button>
-            )}
+      <AppSidebar />
+      <main className="flex-1 flex flex-col min-w-0 w-full min-h-screen gradient-mesh">
+        <header className="h-12 sm:h-14 flex items-center border-b px-3 sm:px-4 gap-2 sm:gap-3 glass-strong sticky top-0 z-10">
+          <SidebarLoggingTrigger />
+          <div className="flex-1" />
+          {user?.role !== "admin" && <NotificationBell />}
+          {(viewMode === "member" || viewMode === "newcomer") && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-2 hidden sm:flex"
+              onClick={handleOpenPrayer}
+            >
+              <MessageSquareHeart className="h-4 w-4" />
+              <span className="hidden md:inline">Prayer</span>
+            </Button>
+          )}
+          {/* Mobile Icon Only */}
+          {(viewMode === "member" || viewMode === "newcomer") && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="sm:hidden"
+              onClick={handleOpenPrayer}
+            >
+              <MessageSquareHeart className="h-4 w-4" />
+            </Button>
+          )}
 
-            {user ? (
-              <p className="text-sm text-muted-foreground hidden sm:block">
-                Welcome back, <span className="font-medium text-foreground">{user.name.split(" ")[0]}</span>
+          {user ? (
+            <p className="text-sm text-muted-foreground hidden sm:block">
+              Welcome back, <span className="font-medium text-foreground">{user.name.split(" ")[0]}</span>
+            </p>
+          ) : (
+            <div className="flex items-center gap-3">
+              <p className="text-xs text-muted-foreground hidden sm:block">
+                Browsing as <span className="font-medium text-foreground">Guest</span>
               </p>
-            ) : (
-              <div className="flex items-center gap-3">
-                <p className="text-xs text-muted-foreground hidden sm:block">
-                  Browsing as <span className="font-medium text-foreground">Guest</span>
-                </p>
-                <Button asChild variant="outline" size="sm" className="h-8">
-                  <Link to="/login">Sign In</Link>
-                </Button>
-              </div>
-            )}
-          </header>
-          <div className="flex-1 p-3 sm:p-4 md:p-6 overflow-auto">
-            {children}
-          </div>
-          <PrayerRequestDialog isOpen={isPrayerDialogOpen} onClose={() => setIsPrayerDialogOpen(false)} />
-        </main>
-      </div>
+              <Button asChild variant="outline" size="sm" className="h-8">
+                <Link to="/login">Sign In</Link>
+              </Button>
+            </div>
+          )}
+        </header>
+        <div className="flex-1 p-3 sm:p-4 md:p-6 overflow-auto">
+          {children}
+        </div>
+        <PrayerRequestDialog isOpen={isPrayerDialogOpen} onClose={() => setIsPrayerDialogOpen(false)} />
+      </main>
     </SidebarProvider>
   );
 }

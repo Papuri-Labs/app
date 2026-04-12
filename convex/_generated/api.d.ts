@@ -14,8 +14,8 @@ import type * as attendance from "../attendance.js";
 import type * as budgets from "../budgets.js";
 import type * as bulletins from "../bulletins.js";
 import type * as clerk from "../clerk.js";
-import type * as emails from "../emails.js";
 import type * as debug from "../debug.js";
+import type * as emails from "../emails.js";
 import type * as events from "../events.js";
 import type * as expenses from "../expenses.js";
 import type * as funds from "../funds.js";
@@ -34,6 +34,7 @@ import type * as permissions from "../permissions.js";
 import type * as prayer_requests from "../prayer_requests.js";
 import type * as services from "../services.js";
 import type * as settings from "../settings.js";
+import type * as test_prayer_recipients from "../test_prayer_recipients.js";
 import type * as test_sync from "../test_sync.js";
 import type * as users from "../users.js";
 
@@ -50,8 +51,8 @@ declare const fullApi: ApiFromModules<{
   budgets: typeof budgets;
   bulletins: typeof bulletins;
   clerk: typeof clerk;
-  emails: typeof emails;
   debug: typeof debug;
+  emails: typeof emails;
   events: typeof events;
   expenses: typeof expenses;
   funds: typeof funds;
@@ -70,6 +71,7 @@ declare const fullApi: ApiFromModules<{
   prayer_requests: typeof prayer_requests;
   services: typeof services;
   settings: typeof settings;
+  test_prayer_recipients: typeof test_prayer_recipients;
   test_sync: typeof test_sync;
   users: typeof users;
 }>;

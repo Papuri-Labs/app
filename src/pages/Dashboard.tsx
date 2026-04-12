@@ -1,5 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { Navigate } from "react-router-dom";
+import { Navigate, useParams } from "react-router-dom";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import NewcomerDashboard from "./NewcomerDashboard";
 import MemberDashboard from "./MemberDashboard";
@@ -24,7 +24,14 @@ export default function Dashboard() {
     );
   }
 
-  if (!isAuthenticated || !user) return <Navigate to="/login" replace />;
+  const { orgSlug } = useParams<{ orgSlug?: string }>();
+  const slug = orgSlug && orgSlug !== "dashboard" ? orgSlug : "my-church";
+
+  if (!isAuthenticated || !user) return <Navigate to={`/${slug}/login`} replace />;
+
+  if (user.orgSlug && user.orgSlug !== slug) {
+    return <Navigate to={`/${user.orgSlug}/dashboard`} replace />;
+  }
 
   // For leaders and finance users (or users with isFinance permission), respect the view mode preference
   if (user.role === 'leader') {
@@ -46,5 +53,5 @@ export default function Dashboard() {
   if (user.role === "member") return <MemberDashboard />;
   if (user.role === "newcomer") return <NewcomerDashboard />;
 
-  return <Navigate to="/login" replace />;
+  return <Navigate to={`/${slug}/login`} replace />;
 }

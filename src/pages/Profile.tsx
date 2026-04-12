@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Layout } from "@/components/Layout";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { DashboardCard } from "@/components/DashboardCard";
@@ -63,7 +62,7 @@ export default function Profile() {
   };
 
   return (
-    <Layout>
+    <>
       <div className="max-w-2xl mx-auto space-y-4 md:space-y-6">
         <h1 className="text-2xl font-bold">My Profile</h1>
 
@@ -113,6 +112,6 @@ export default function Profile() {
           </div>
         </DashboardCard>
       </div>
-    </Layout>
+    </>
   );
 }

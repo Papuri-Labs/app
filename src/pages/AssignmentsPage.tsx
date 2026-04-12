@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { Layout } from "@/components/Layout";
 import { DashboardCard } from "@/components/DashboardCard";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -111,7 +110,7 @@ export default function AssignmentsPage() {
     if (!user) return null;
 
     return (
-        <Layout>
+        <>
             <div className="space-y-6 animate-fade-in pb-20">
                 <div className={`${isLeaderView ? 'gradient-leader' : 'gradient-member'} glass rounded-2xl p-6 relative overflow-hidden`}>
                     <div className="absolute top-0 right-0 w-48 h-48 rounded-full bg-primary/10 -translate-y-1/2 translate-x-1/3 blur-3xl" />
@@ -234,7 +233,7 @@ export default function AssignmentsPage() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-        </Layout>
+        </>
     );
 }
 

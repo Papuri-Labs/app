@@ -1,10 +1,9 @@
-import { Layout } from "@/components/Layout";
 import { DashboardCard } from "@/components/DashboardCard";
 import { BarChart3 } from "lucide-react";
 
 export default function GivingReportsPage() {
     return (
-        <Layout>
+        <>
             <div className="space-y-6 animate-fade-in">
                 {/* Header */}
                 <div className="gradient-leader glass rounded-2xl p-6 relative overflow-hidden">
@@ -26,6 +25,6 @@ export default function GivingReportsPage() {
                     </p>
                 </DashboardCard>
             </div>
-        </Layout>
+        </>
     );
 }

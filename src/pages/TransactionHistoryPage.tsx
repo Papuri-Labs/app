@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Layout } from "@/components/Layout";
 import { DashboardCard } from "@/components/DashboardCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation } from "convex/react";
@@ -100,7 +99,7 @@ export default function TransactionHistoryPage() {
     };
 
     return (
-        <Layout>
+        <>
             <div className="space-y-6 animate-fade-in">
                 {/* Header */}
                 <div className="gradient-newcomer glass rounded-2xl p-6 relative overflow-hidden">
@@ -281,6 +280,6 @@ export default function TransactionHistoryPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </Layout>
+        </>
     );
 }

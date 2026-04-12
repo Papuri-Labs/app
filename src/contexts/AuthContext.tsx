@@ -22,6 +22,7 @@ interface User {
   id: string; // Clerk ID
   _id?: string; // Convex ID
   organizationId?: string; // Organization ID for multi-tenancy
+  orgSlug?: string; // Real backing org slug
   name: string;
   email: string;
   role: UserRole;
@@ -62,7 +63,27 @@ export const useAuth = () => {
 };
 
 // Reserved route segments that are NOT organization slugs
-const RESERVED_PATHS = ["login", "signup", "dashboard", "profile", "api", ""];
+export const RESERVED_PATHS = ["login", "signup", "dashboard", "profile", "api", ""];
+// Alias for backward compatibility with AppSidebar.tsx and ThemeProvider.tsx
+export const RESERVED_ROUTE_KEYWORDS = RESERVED_PATHS;
+
+const ORG_SLUG_KEY = "papuri_org_slug";
+
+/**
+ * Persists the org slug to sessionStorage so it can be recovered on pages
+ * that don't have /:orgSlug in their URL (e.g. /login, /signup).
+ */
+export function persistOrgSlug(slug: string) {
+  try { sessionStorage.setItem(ORG_SLUG_KEY, slug); } catch {}
+}
+
+/**
+ * Reads the previously persisted org slug from sessionStorage.
+ * Used by Login and SignUp pages to redirect to the correct org after auth.
+ */
+export function getPersistedOrgSlug(): string | null {
+  try { return sessionStorage.getItem(ORG_SLUG_KEY); } catch { return null; }
+}
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const { isSignedIn, signOut } = useClerkAuth();
@@ -72,6 +93,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Resolve org slug — ignore reserved path names
   const resolvedOrgSlug = orgSlug && !RESERVED_PATHS.includes(orgSlug) ? orgSlug : undefined;
+
+  // Persist the org slug whenever we have a valid one (for Login/SignUp recovery)
+  if (resolvedOrgSlug) persistOrgSlug(resolvedOrgSlug);
 
   // Keep local state for ministries and settings for now
   const [ministries, setMinistries] = useState<Ministry[]>([
@@ -116,6 +140,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           id: clerkUser.id,
           _id: convexUser._id,
           organizationId: convexUser.organizationId,
+          orgSlug: convexUser.orgSlug,
           name: convexUser.name,
           email: convexUser.email,
           role: convexUser.role as UserRole,

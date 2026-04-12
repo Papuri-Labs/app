@@ -20,7 +20,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const orgSlug = getSlugFromPath() || getPersistedOrgSlug();
 
   // Slug-aware settings: Prioritize the slug from the URL to ensure correct branding
-  const settings = useQuery(api.settings.get, { orgSlug });
+  const settings = useQuery(api.settings.get, { orgSlug: orgSlug ?? undefined });
 
   // Guest queries: Robust direct slug-to-settings fetching for unauthenticated pages
   const guestBranding = useQuery(api.settings.getPublicBySlug, !user ? { slug: orgSlug || "my-church" } : "skip");
