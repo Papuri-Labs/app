@@ -6,7 +6,8 @@ import { BarChart3, Users, Shield, Settings, Database, Activity } from "lucide-r
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useNavigate, useParams } from "react-router-dom";
-import { ComingSoonDialog } from "@/components/ComingSoonDialog";
+import { roleSolidColors } from "@/lib/role-colors";
+import { UserRole } from "@/contexts/AuthContext";
 
 import { useState } from "react";
 
@@ -39,7 +40,7 @@ export default function AdminDashboard() {
   const roleDistribution = Object.entries(roles).map(([role, count]) => ({
     role: role.charAt(0).toUpperCase() + role.slice(1),
     count: Number(count),
-    color: role === 'admin' ? 'bg-destructive' : role === 'leader' ? 'bg-primary' : 'bg-muted',
+    color: roleSolidColors[role as UserRole] || 'bg-muted',
   }));
 
   return (

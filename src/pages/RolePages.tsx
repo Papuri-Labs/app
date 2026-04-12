@@ -121,6 +121,8 @@ const usersList: { name: string; email: string; role: string; status: string; mi
 
 const rolesMatrix: { role: string; access: string }[] = [];
 
+import { roleBadgeStyles } from "@/lib/role-colors";
+
 export function NewcomerOnboardingPage() {
   const { user } = useAuth();
   const onboardingSteps = useQuery(api.onboarding.listSteps) || [];
@@ -2556,12 +2558,12 @@ export function ManageUsersPage() {
                           <TableCell>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-8 text-xs px-2 my-1 font-normal">
+                                <Button variant="ghost" size="sm" className={`h-8 text-xs px-2 my-1 font-normal rounded-full ${roleBadgeStyles[u.role as UserRole]}`}>
                                   {u.role.charAt(0).toUpperCase() + u.role.slice(1)} <ChevronDown className="ml-1 h-3 w-3 opacity-50" />
                                 </Button>
                               </DropdownMenuTrigger>
                               {u.isFinance && (
-                                <span className="ml-2 text-[10px] bg-blue-500/10 text-blue-500 px-1.5 py-0.5 rounded-full font-medium border border-blue-500/20">
+                                <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${roleBadgeStyles.finance}`}>
                                   Finance Access
                                 </span>
                               )}

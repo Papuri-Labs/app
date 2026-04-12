@@ -21,6 +21,7 @@ import { ProfileDialog } from "@/components/ProfileDialog";
 import { useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useViewMode } from "@/contexts/ViewModeContext";
+import { roleBadgeStyles } from "@/lib/role-colors";
 
 type NavItem = { title: string; url: string; icon: React.ElementType };
 
@@ -107,17 +108,11 @@ const roleLabels: Record<UserRole, string> = {
   newcomer: "Newcomer",
   member: "Member",
   leader: "Leader",
-  finance: "Finance",
+  finance: "Finance User",
   admin: "Admin",
 };
 
-const roleColors: Record<UserRole, string> = {
-  newcomer: "bg-accent/10 border border-accent/20 text-accent",
-  member: "bg-primary/10 border border-primary/20 text-primary",
-  leader: "bg-primary/10 border border-primary/20 text-primary",
-  finance: "bg-blue-500/10 border border-blue-500/20 text-blue-500",
-  admin: "bg-destructive/10 border border-destructive/20 text-destructive",
-};
+// roleColors is now handled by roleBadgeStyles in role-colors.ts
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user, logout } = useAuth();
@@ -282,7 +277,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   </Avatar>
                   <div className="flex-1 text-left group-data-[collapsible=icon]:hidden">
                     <p className="text-sm font-medium text-sidebar-foreground">{user.name}</p>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${roleColors[effectiveRole]}`}>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${roleBadgeStyles[effectiveRole]}`}>
                       {(effectiveRole === "leader" || effectiveRole === "member") && user.ministryNames && user.ministryNames.length > 0
                         ? `${user.ministryNames.join(", ")} ${effectiveRole === "leader" ? "Leader" : "Member"}`
                         : roleLabels[effectiveRole]}
