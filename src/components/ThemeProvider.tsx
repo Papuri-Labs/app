@@ -30,36 +30,52 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const displaySettings = settings || guestBranding;
 
-  // Helper to convert hex to HSL numeric values
-  const getHslValues = (hex: string) => {
-    if (!hex || !hex.startsWith('#')) return null;
-    
-    let r = parseInt(hex.slice(1, 3), 16) / 255;
-    let g = parseInt(hex.slice(3, 5), 16) / 255;
-    let b = parseInt(hex.slice(5, 7), 16) / 255;
+  // Helper to convert hex to HSL numeric values or parse existing HSL strings
+  const getHslValues = (color: string) => {
+    if (!color) return null;
 
-    let max = Math.max(r, g, b), min = Math.min(r, g, b);
-    let h = 0, s, l = (max + min) / 2;
+    // Handle Hex
+    if (color.startsWith('#')) {
+      let r = parseInt(color.slice(1, 3), 16) / 255;
+      let g = parseInt(color.slice(3, 5), 16) / 255;
+      let b = parseInt(color.slice(5, 7), 16) / 255;
 
-    if (max === min) {
-      h = s = 0;
-    } else {
-      let d = max - min;
-      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-      switch (max) {
-        case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-        case g: h = (b - r) / d + 2; break;
-        case b: h = (r - g) / d + 4; break;
+      let max = Math.max(r, g, b), min = Math.min(r, g, b);
+      let h = 0, s, l = (max + min) / 2;
+
+      if (max === min) {
+        h = s = 0;
+      } else {
+        let d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+          case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+          case g: h = (b - r) / d + 2; break;
+          case b: h = (r - g) / d + 4; break;
+        }
+        h /= 6;
       }
-      h /= 6;
+
+      return { 
+        h: Math.round(h * 360), 
+        s: Math.round(s * 100), 
+        l: Math.round(l * 100),
+        toString: () => `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`
+      };
     }
 
-    return { 
-      h: Math.round(h * 360), 
-      s: Math.round(s * 100), 
-      l: Math.round(l * 100),
-      toString: () => `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`
-    };
+    // Handle HSL string (e.g. "215 55% 42%")
+    const hslMatch = color.match(/(\d+)\s+(\d+)%\s+(\d+)%/);
+    if (hslMatch) {
+      return {
+        h: parseInt(hslMatch[1]),
+        s: parseInt(hslMatch[2]),
+        l: parseInt(hslMatch[3]),
+        toString: () => color
+      };
+    }
+
+    return null;
   };
 
   // Helper to determine if a color is light or dark
