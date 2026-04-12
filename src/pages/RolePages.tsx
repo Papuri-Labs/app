@@ -121,6 +121,8 @@ const usersList: { name: string; email: string; role: string; status: string; mi
 
 const rolesMatrix: { role: string; access: string }[] = [];
 
+import { roleBadgeStyles } from "@/lib/role-colors";
+
 export function NewcomerOnboardingPage() {
   const { user } = useAuth();
   const onboardingSteps = useQuery(api.onboarding.listSteps) || [];
@@ -2436,8 +2438,7 @@ export function ManageUsersPage() {
   const updateUserRole = useAction(api.clerk.updateRole);
   const toggleFinanceAccess = useMutation(api.users.toggleFinanceAccess);
   const deleteUser = useMutation(api.users.deleteUser);
-  const syncUsers = useAction(api.clerk.sync);
-  const [isSyncing, setIsSyncing] = useState(false);
+
 
   // Add User State
   const createOfflineUser = useMutation(api.users.createOfflineUser);
@@ -2556,12 +2557,12 @@ export function ManageUsersPage() {
                           <TableCell>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-8 text-xs px-2 my-1 font-normal">
+                                <Button variant="ghost" size="sm" className={`h-8 text-xs px-2 my-1 font-normal rounded-full ${roleBadgeStyles[u.role as UserRole]}`}>
                                   {u.role.charAt(0).toUpperCase() + u.role.slice(1)} <ChevronDown className="ml-1 h-3 w-3 opacity-50" />
                                 </Button>
                               </DropdownMenuTrigger>
                               {u.isFinance && (
-                                <span className="ml-2 text-[10px] bg-blue-500/10 text-blue-500 px-1.5 py-0.5 rounded-full font-medium border border-blue-500/20">
+                                <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${roleBadgeStyles.finance}`}>
                                   Finance Access
                                 </span>
                               )}
@@ -2664,25 +2665,7 @@ export function ManageUsersPage() {
           <Card className="glass-strong border-0 rounded-2xl shrink-0">
             <CardContent className="p-4 flex flex-wrap gap-2 items-center justify-between">
               <div className="flex gap-2 w-full overflow-x-auto pb-1 sm:pb-0 sm:w-auto">
-                <Button
-                  size="sm"
-                  variant="default"
-                  disabled={isSyncing}
-                  onClick={async () => {
-                    setIsSyncing(true);
-                    try {
-                      const stats = await syncUsers();
-                      alert(`Synced! Updated: ${stats.updated}, Created: ${stats.created}, Deactivated: ${stats.deactivated}`);
-                    } catch (e: any) {
-                      alert(`Sync failed: ${e.message}`);
-                    } finally {
-                      setIsSyncing(false);
-                    }
-                  }}
-                >
-                  <RefreshCw className={`h-4 w-4 mr-1 ${isSyncing ? 'animate-spin' : ''}`} />
-                  {isSyncing ? "Syncing..." : "Sync w/ Clerk"}
-                </Button>
+
                 <Button size="sm" variant="outline" onClick={() => setShowAddUser(true)}>
                   <UserPlus className="h-4 w-4 mr-1" /> Add User
                 </Button>

@@ -82,18 +82,21 @@ export const syncUser = mutation({
                 "settings", "admin", "leader", "member", "newcomer", "my-church"
             ];
             
-            let organizationId = existingUser.organizationId;
+            // Profile Sync (Convex is now source of truth for Role & Org once established)
+            const updates: any = {
+                email: args.email,
+                name: args.name,
+                avatar: args.avatar,
+                isActive: true,
+            };
+
+            // Only update organization if it's currently invalid or placeholder
             if (!currentOrg || !currentOrg.slug || INVALID_SLUGS.includes(currentOrg.slug)) {
-                console.log(`[users:syncUser] Healing user ${args.email} - moving from invalid slug "${currentOrg?.slug}" to "${args.orgSlug}"`);
-                organizationId = await getOrCreateOrganization(ctx, args.orgSlug);
+                console.log(`[users:syncUser] Auto-assigning user ${args.email} to org: ${args.orgSlug}`);
+                updates.organizationId = await getOrCreateOrganization(ctx, args.orgSlug);
             }
 
-            await ctx.db.patch(existingUser._id, {
-                organizationId,
-                email: args.email,
-                role: args.role as any,
-                isActive: true,
-            });
+            await ctx.db.patch(existingUser._id, updates);
 
             await logAction(ctx, existingUser, tracing, {
                 action: "USER_SYNC",

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo, useRef } from "react";
 import { useAuth as useClerkAuth, useUser } from "@clerk/clerk-react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -44,6 +44,7 @@ interface AuthContextType {
   user: User | null;
   organizationId?: string; // Expose organizationId at context level for easy access
   isAuthenticated: boolean;
+  isLoading: boolean;
   login: (email: string, password: string, role?: UserRole) => Promise<void>;
   logout: () => Promise<void>;
   switchRole: (role: UserRole) => void;
@@ -102,9 +103,10 @@ export function getPersistedOrgSlug(): string {
 }
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const { isSignedIn, signOut } = useClerkAuth();
+  const { isLoaded, isSignedIn } = useClerkAuth();
   const { user: clerkUser } = useUser();
-  const [user, setUser] = useState<User | null>(null);
+  const { signOut } = useClerkAuth();
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Keep local state for ministries and settings for now
   const [ministries, setMinistries] = useState<Ministry[]>([
@@ -130,18 +132,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // 1. Handle Syncing (Triggered once per sign-in)
   useEffect(() => {
-    if (isSignedIn && clerkUser) {
+    if (isLoaded && isSignedIn && clerkUser) {
       // Prioritize Clerk Metadata as the Source of Truth, then the URL
       const metadataSlug = clerkUser.publicMetadata?.orgSlug as string;
       const urlSlug = getOrgSlugFromUrl();
-      const effectiveSlug = (metadataSlug && !RESERVED_ROUTE_KEYWORDS.includes(metadataSlug)) 
-        ? metadataSlug 
-        : urlSlug;
+      const isReserved = RESERVED_ROUTE_KEYWORDS.includes(urlSlug);
+      
+      const effectiveSlug = isReserved 
+        ? (metadataSlug || "my-church") 
+        : (urlSlug || "my-church");
 
       const syncKey = `${clerkUser.id}-${effectiveSlug}`;
       if (syncAttempted.current !== syncKey) {
         console.log(`[AuthContext] Initiating sync for user: ${clerkUser.id} on org: ${effectiveSlug}`);
         syncAttempted.current = syncKey;
+        setIsSyncing(true);
+        
+        // Initial role suggestion (only used for new user creation in Convex)
         const role = (clerkUser.publicMetadata.role as UserRole) || "newcomer";
 
         syncUser({
@@ -152,75 +159,52 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           orgSlug: effectiveSlug,
           avatar: clerkUser.imageUrl,
           tracing: getTracing(),
+        }).then(() => {
+          console.log("[AuthContext] Sync completed");
+          setIsSyncing(false);
         }).catch((err) => {
           console.error("[AuthContext] Sync failed:", err);
           syncAttempted.current = null;
+          setIsSyncing(false);
         });
       }
-    } else if (!isSignedIn) {
+    } else if (isLoaded && !isSignedIn) {
       syncAttempted.current = null;
     }
-  }, [isSignedIn, clerkUser?.id]); // Only depend on ID stability
+  }, [isLoaded, isSignedIn, clerkUser?.id]); 
 
-  // 2. Handle User State Calculation (Triggered by data arrivals)
+  // 2. Atomic User State Derivation (Source of Truth)
+  const user = useMemo(() => {
+    if (!isSignedIn || !clerkUser || !convexUser) return null;
+
+    // Determine the organization slug from Convex (source of truth) or fallback to URL during initial load
+    const finalOrgSlug = (convexUser.organizationSlug && !RESERVED_ROUTE_KEYWORDS.includes(convexUser.organizationSlug))
+      ? convexUser.organizationSlug
+      : (getOrgSlugFromUrl() || "my-church");
+
+    return {
+      id: clerkUser.id,
+      _id: convexUser._id,
+      organizationId: convexUser.organizationId,
+      name: convexUser.name,
+      email: convexUser.email,
+      role: convexUser.role as UserRole,
+      avatar: clerkUser.imageUrl,
+      ministryIds: convexUser.ministryIds,
+      ministryNames: convexUser.ministryNames || [],
+      address: convexUser.address,
+      birthday: convexUser.birthday,
+      gender: convexUser.gender,
+      contactNumber: convexUser.contactNumber,
+      isFinance: convexUser.isFinance,
+      organizationSlug: finalOrgSlug,
+      socials: convexUser.socials,
+    };
+  }, [isSignedIn, clerkUser, convexUser]);
+
   useEffect(() => {
-    if (!isSignedIn || !clerkUser) {
-      if (user !== null) {
-        console.log("[AuthContext] Clearing user state (signed out)");
-        setUser(null);
-      }
-      return;
-    }
-
-    // Determine the most accurate data available
-    const role = (clerkUser.publicMetadata.role as UserRole) || "newcomer";
-    
-    // Determine the organization slug, prioritizing Clerk metadata as the definitive authority
-    const metadataSlug = clerkUser.publicMetadata?.orgSlug as string;
-    const finalOrgSlug = (metadataSlug && !RESERVED_ROUTE_KEYWORDS.includes(metadataSlug))
-      ? metadataSlug
-      : (convexUser?.organizationSlug || getOrgSlugFromUrl());
-
-    let nextUser: User;
-    if (convexUser) {
-      nextUser = {
-        id: clerkUser.id,
-        _id: convexUser._id,
-        organizationId: convexUser.organizationId,
-        name: convexUser.name,
-        email: convexUser.email,
-        role: convexUser.role as UserRole,
-        avatar: clerkUser.imageUrl,
-        ministryIds: convexUser.ministryIds,
-        ministryNames: convexUser.ministryNames || [],
-        address: convexUser.address,
-        birthday: convexUser.birthday,
-        gender: convexUser.gender,
-        contactNumber: convexUser.contactNumber,
-        isFinance: convexUser.isFinance,
-        organizationSlug: finalOrgSlug,
-        socials: convexUser.socials,
-      };
-    } else {
-      nextUser = {
-        id: clerkUser.id,
-        name: clerkUser.fullName || clerkUser.username || "User",
-        email: clerkUser.primaryEmailAddress?.emailAddress || "",
-        role: role,
-        avatar: clerkUser.imageUrl,
-        organizationSlug: finalOrgSlug,
-        ministryIds: [],
-        ministryNames: [],
-      };
-    }
-
-    // Shallow equality check to prevent redundant re-renders
-    const hasChanged = JSON.stringify(user) !== JSON.stringify(nextUser);
-    if (hasChanged) {
-      console.log("[AuthContext] Updating user state", nextUser.email);
-      setUser(nextUser);
-    }
-  }, [isSignedIn, clerkUser?.id, clerkUser?.imageUrl, convexUser]);
+    if (user) console.log("[AuthContext] Resolved user state:", user.email);
+  }, [user]);
 
   const login = async () => {
     // This is now handled by Clerk's UI components typically, 
@@ -237,7 +221,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const switchRole = (role: UserRole) => {
-    if (user) setUser({ ...user, role });
+    console.warn("switchRole is deprecated now that roles are derived purely from Convex. Use ViewModeContext to change UI views without altering database roles.");
   };
 
   const addMinistry = (ministry: Ministry) => {
@@ -254,6 +238,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         user,
         organizationId: user?.organizationId,
         isAuthenticated: !!isSignedIn && !!user,
+        isLoading: !isLoaded || (isSignedIn && (convexUser === undefined || isSyncing)),
         login,
         logout,
         switchRole,
