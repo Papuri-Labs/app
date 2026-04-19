@@ -53,21 +53,23 @@ export const updateDbFromClerk = internalMutation({
             const existing = await ctx.db.query("users").withIndex("by_clerk_id", q => q.eq("userId", u.id)).first();
 
             if (existing) {
-                // Only update if changes? For now just patch to ensure sync.
-                await ctx.db.patch(existing._id, {
-                    name,
+                const updates: any = {
                     email,
                     birthday,
-                    // We don't overwrite role if it's "member" in Clerk but maybe "admin" in DB? 
-                    // But usually Clerk metadata is source of truth for role if using Clerk.
-                    // If local dev, be careful. 
-                    // Logic: If Clerk has a role, use it. If not, keep existing? 
-                    // Implementation: u.public_metadata.role usually exists if set.
-                    // If undefined in Clerk, default is "member".
-                    // We'll update it.
                     role: role as any,
                     isActive: true
-                });
+                };
+
+                // Only sync name if Convex name is currently empty, generic, or matching the initial Clerk state
+                const currentName = existing.name || "";
+                const clerkNameCandidate = `${u.first_name || ""} ${u.last_name || ""}`.trim() || email;
+                const isInitialOrGeneric = !currentName || currentName === "User" || currentName === email || currentName === clerkNameCandidate;
+                
+                if (isInitialOrGeneric) {
+                    updates.name = name;
+                }
+
+                await ctx.db.patch(existing._id, updates);
                 updatedCount++;
             } else {
                 await ctx.db.insert("users", {

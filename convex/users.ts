@@ -82,13 +82,18 @@ export const syncUser = mutation({
                 "settings", "admin", "leader", "member", "newcomer", "my-church"
             ];
             
-            // Profile Sync (Convex is now source of truth for Role & Org once established)
+            // Profile Sync (Convex is now source of truth for name/Role/Org once established)
             const updates: any = {
                 email: args.email,
-                name: args.name,
                 avatar: args.avatar,
                 isActive: true,
             };
+
+            // Only sync name if Convex name is currently empty, generic "User", or matching Clerk's initial sync
+            const isInitialOrGeneric = !existingUser.name || existingUser.name === "User" || existingUser.name === args.email;
+            if (isInitialOrGeneric) {
+                updates.name = args.name;
+            }
 
             // Only update organization if it's currently invalid or placeholder
             if (!currentOrg || !currentOrg.slug || INVALID_SLUGS.includes(currentOrg.slug)) {
