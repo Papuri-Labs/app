@@ -34,14 +34,14 @@ export default function AuthRedirectPage() {
       if (slug && slug !== "my-church") {
         redirected.current = true;
         console.log(`[AuthRedirect] Redirecting authenticated user to /${slug}/dashboard`);
-        
+
         if (requestedSlug && requestedSlug !== slug && requestedSlug !== "my-church") {
-            localStorage.setItem("orgSlug", slug);
-            toast.info(`Redirected to your home workspace`, {
-                description: `You tried to sign in to '${requestedSlug}', but your account belongs to '${slug}'.`,
-                position: typeof window !== 'undefined' && window.innerWidth < 768 ? "bottom-center" : "bottom-right",
-                duration: 6000,
-            });
+          localStorage.setItem("orgSlug", slug);
+          toast.info(`Redirected to your home workspace`, {
+            description: `You tried to sign in to '${requestedSlug}', but your account belongs to '${slug}'.`,
+            position: typeof window !== 'undefined' && window.innerWidth < 768 ? "bottom-center" : "bottom-right",
+            duration: 6000,
+          });
         }
 
         navigate(`/${slug}/dashboard`, { replace: true });
@@ -62,7 +62,7 @@ export default function AuthRedirectPage() {
       <div className="flex flex-col items-center gap-4">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
         <p className="text-sm text-muted-foreground animate-pulse">
-          Setting up your workspace…
+          Setting up your church space…
         </p>
       </div>
     </div>
