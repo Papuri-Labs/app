@@ -11,11 +11,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { GivingDialog } from "@/components/GivingDialog";
 import { BulletinDialog } from "@/components/BulletinDialog";
 import { AnnouncementDialog } from "@/components/AnnouncementDialog";
 import { EventDialog } from "@/components/EventDialog";
+import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { useMemo, useState, useEffect } from "react";
@@ -52,7 +53,6 @@ import {
   Search, Hash, Info,
   ArrowRight, AlertTriangle
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -775,33 +775,150 @@ export function BulletinsPage() {
 }
 
 export function BibleReadingPage() {
+  const activePlanData = useQuery(api.biblePlan.getMyActivePlan);
+  const markAsRead = useMutation(api.biblePlan.markDayComplete);
+  const [isMarking, setIsMarking] = useState(false);
+
+  if (activePlanData === undefined) return <div className="p-8 text-center text-muted-foreground animate-pulse">Loading reading plan...</div>;
+
+  if (!activePlanData) {
+    return (
+      <Layout>
+        <div className="space-y-6 animate-fade-in">
+          <PageHeader
+            title="Bible Reading"
+            subtitle="Keep your daily rhythm of scripture."
+            gradient="gradient-member"
+          />
+          <div className="flex flex-col items-center justify-center py-20 text-center glass rounded-3xl border border-primary/5">
+            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-6">
+              <BookOpen className="h-8 w-8 text-primary opacity-50" />
+            </div>
+            <h3 className="text-lg font-semibold">No active plan found</h3>
+            <p className="text-sm text-muted-foreground mt-2 max-w-[300px]">
+              You haven't been assigned a reading plan yet. Contact your ministry leader to get started!
+            </p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  const { assignment, plan, progress, readings } = activePlanData;
+  
+  // Calculate current day based on start date
+  const start = new Date(assignment.startDate);
+  const now = new Date();
+  start.setHours(0, 0, 0, 0);
+  now.setHours(0, 0, 0, 0);
+  
+  const diffTime = Math.abs(now.getTime() - start.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  const todayDay = diffDays + 1; // 1-indexed
+
+  const todayReading = readings.find(r => r.dayNumber === todayDay);
+  const isCompletedToday = progress.includes(todayDay);
+  const percentComplete = Math.round((progress.length / (plan?.duration || 1)) * 100);
+
+  const handleMarkAsRead = async () => {
+    if (isMarking || isCompletedToday) return;
+    setIsMarking(true);
+    try {
+      await markAsRead({
+        assignmentId: assignment._id,
+        dayNumber: todayDay,
+        tracing: getTracing()
+      });
+    } catch (e: any) {
+      alert("Error: " + e.message);
+    } finally {
+      setIsMarking(false);
+    }
+  };
+
   return (
     <Layout>
       <div className="space-y-6 animate-fade-in">
         <PageHeader
           title="Bible Reading"
-          subtitle="Keep your daily rhythm of scripture."
+          subtitle={plan?.title || "Daily Scripture"}
           gradient="gradient-member"
         />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-          <DashboardCard title="Today's Reading" icon={<BookOpen className="h-5 w-5 text-primary" />} gradient="gradient-member">
-            <div className="p-4 rounded-xl glass-subtle">
-              <p className="text-xs text-muted-foreground mb-1">One Year Plan</p>
-              <p className="text-sm font-medium">Genesis 35-36 · Matthew 11</p>
-            </div>
-            <div className="flex gap-2 mt-3">
-              <Button size="sm">Mark as Read</Button>
-              <Button size="sm" variant="outline">View Plan</Button>
+          <DashboardCard 
+            title="Today's Reading" 
+            description={`Day ${todayDay} of ${plan?.duration}`}
+            icon={<BookOpen className="h-5 w-5 text-primary" />} 
+            gradient="gradient-member"
+          >
+            <div className="space-y-4">
+              <div className={`p-6 rounded-2xl border transition-all ${isCompletedToday ? 'bg-success/5 border-success/20' : 'bg-primary/5 border-primary/10'}`}>
+                {todayReading ? (
+                  <div className="text-center">
+                    <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-widest font-bold">Recommended Passage</p>
+                    <h3 className="text-xl font-bold tracking-tight mb-2">{todayReading.scripture}</h3>
+                    {todayReading.notes && <p className="text-xs text-muted-foreground italic">"{todayReading.notes}"</p>}
+                  </div>
+                ) : todayDay > (plan?.duration || 0) ? (
+                  <div className="text-center">
+                    <Sparkles className="h-8 w-8 text-success mx-auto mb-2" />
+                    <p className="text-sm font-semibold">Plan Completed!</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">You've reached the end of this journey. Well done!</p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-center text-muted-foreground">Reading not scheduled for today.</p>
+                )}
+              </div>
+              
+              <div className="flex gap-2">
+                <Button 
+                  className={`flex-1 ${isCompletedToday ? 'bg-success hover:bg-success/90' : ''}`}
+                  onClick={handleMarkAsRead}
+                  disabled={isMarking || isCompletedToday || !todayReading}
+                >
+                  {isCompletedToday ? (
+                    <><CheckCircle2 className="h-4 w-4 mr-2" /> Completed</>
+                  ) : isMarking ? "Saving..." : "Mark as Read"}
+                </Button>
+                <Button variant="outline" className="flex-1" onClick={() => openExternalLink("https://bible.com")}>
+                   Read Bible
+                </Button>
+              </div>
             </div>
           </DashboardCard>
 
-          <DashboardCard title="Progress" icon={<ClipboardList className="h-5 w-5 text-primary" />} gradient="gradient-member">
-            <p className="text-sm text-muted-foreground mb-3">12% completed this year</p>
-            <Progress value={12} className="h-2" />
-            <div className="flex items-center justify-between mt-3 text-xs text-muted-foreground">
-              <span>Streak: 12 days</span>
-              <span>Next milestone: 20 days</span>
+          <DashboardCard 
+            title="Your Progress" 
+            icon={<ClipboardList className="h-5 w-5 text-primary" />} 
+            gradient="gradient-member"
+          >
+            <div className="space-y-6">
+              <div className="flex items-end justify-between">
+                <div>
+                  <p className="text-sm font-medium">Overall Completion</p>
+                  <p className="text-2xl font-bold tracking-tighter text-primary">{percentComplete}%</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground italic">{progress.length} days read</p>
+                </div>
+              </div>
+              
+              <Progress value={percentComplete} className="h-2.5 shadow-inner" />
+              
+              <div className="grid grid-cols-7 gap-1">
+                {Array.from({ length: Math.min(plan?.duration || 0, 31) }).map((_, i) => (
+                  <div 
+                    key={i} 
+                    className={`h-2 rounded-full ${progress.includes(i + 1) ? 'bg-success' : i + 1 === todayDay ? 'bg-primary animate-pulse' : 'bg-muted'}`}
+                    title={`Day ${i + 1}`}
+                  />
+                ))}
+              </div>
+              
+              {plan && plan.duration > 31 && (
+                <p className="text-[10px] text-muted-foreground italic text-center">Showing first 31 days of your {plan.duration} day plan.</p>
+              )}
             </div>
           </DashboardCard>
         </div>
@@ -809,6 +926,7 @@ export function BibleReadingPage() {
     </Layout>
   );
 }
+
 
 export function AnnouncementsPage() {
   const { orgSlug } = useParams<{ orgSlug: string }>();
@@ -1143,6 +1261,355 @@ export function ManageEventsPage() {
     </Layout>
   );
 }
+
+export function ManageBibleReadingPage() {
+  const { orgSlug } = useParams<{ orgSlug: string }>();
+  const { user } = useAuth();
+  
+  if (user && user.role !== "leader" && user.role !== "admin") {
+    return <Navigate to={`/${orgSlug}/dashboard`} replace />;
+  }
+
+  const plans = useQuery(api.biblePlan.listPlans) || [];
+  const members = useQuery(api.users.getMemberDirectory) || [];
+  const createPlan = useMutation(api.biblePlan.createPlan);
+  const assignPlan = useMutation(api.biblePlan.assignPlan);
+
+  // Create Plan State
+  const [showCreatePlan, setShowCreatePlan] = useState(false);
+  const [newPlan, setNewPlan] = useState({ title: "", description: "", duration: 1 });
+  const [readings, setReadings] = useState<any[]>([]);
+  const [isCreating, setIsCreating] = useState(false);
+
+  // Assign Plan State
+  const [showAssignModal, setShowAssignModal] = useState<any>(null); // Plan ID
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+  const [startDate, setStartDate] = useState(getLocalSysDate());
+  const [isAssigning, setIsAssigning] = useState(false);
+
+  // Monitor State
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const progressList = useQuery(api.biblePlan.getPlanAssignments, selectedPlanId ? { planId: selectedPlanId as any } : "skip") || [];
+
+  // Update readings array when duration changes
+  useEffect(() => {
+    const currentCount = readings.length;
+    if (newPlan.duration > currentCount) {
+      const additional = Array.from({ length: newPlan.duration - currentCount }, (_, i) => ({
+        dayNumber: currentCount + i + 1,
+        scripture: "",
+        notes: ""
+      }));
+      setReadings([...readings, ...additional]);
+    } else if (newPlan.duration < currentCount) {
+      setReadings(readings.slice(0, newPlan.duration));
+    }
+  }, [newPlan.duration]);
+
+  const handleCreatePlan = async () => {
+    if (!newPlan.title) return alert("Please enter a title");
+    setIsCreating(true);
+    try {
+      await createPlan({
+        title: newPlan.title,
+        description: newPlan.description,
+        duration: newPlan.duration,
+        readings: readings,
+        tracing: getTracing()
+      });
+      setShowCreatePlan(false);
+      setNewPlan({ title: "", description: "", duration: 1 });
+      setReadings([]);
+    } catch (e: any) {
+      alert("Failed to create plan: " + e.message);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleAssignPlan = async () => {
+    if (selectedMembers.length === 0) return alert("Select at least one member");
+    setIsAssigning(true);
+    try {
+      await assignPlan({
+        planId: showAssignModal._id,
+        memberIds: selectedMembers as any[],
+        startDate: startDate,
+        tracing: getTracing()
+      });
+      setShowAssignModal(null);
+      setSelectedMembers([]);
+    } catch (e: any) {
+      alert("Failed to assign: " + e.message);
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  return (
+    <Layout>
+      <div className="space-y-6 animate-fade-in pb-20">
+        <PageHeader
+          title="Manage Bible Reading"
+          subtitle="Create and distribute scripture reading plans for your members."
+          gradient="gradient-leader"
+        />
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            <DashboardCard
+              title="Reading Plans"
+              icon={<BookOpen className="h-5 w-5 text-primary" />}
+              gradient="gradient-leader"
+              action={
+                <Button onClick={() => setShowCreatePlan(true)} size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm h-8">
+                  <Plus className="h-3.5 w-3.5 mr-1" /> New Plan
+                </Button>
+              }
+            >
+              <div className="space-y-3">
+                {plans.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed rounded-xl bg-muted/5">
+                    <BookOpen className="h-8 w-8 text-muted-foreground/30 mb-4" />
+                    <p className="text-sm font-medium">No plans created yet</p>
+                    <p className="text-xs text-muted-foreground mt-1 max-w-[250px] mb-6">Create your first plan to start tracking engagement.</p>
+                    <Button onClick={() => setShowCreatePlan(true)} variant="outline" size="sm" className="border-primary/20 hover:bg-primary/5">
+                      <Plus className="h-4 w-4 mr-2" /> Create First Plan
+                    </Button>
+                  </div>
+                ) : (
+                  plans.map((p) => (
+                    <div key={p._id} className={`p-4 rounded-xl border transition-all ${selectedPlanId === p._id ? 'bg-primary/5 border-primary/20 ring-1 ring-primary/20' : 'glass-subtle hover:bg-muted/50 border-primary/5'}`}>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="cursor-pointer flex-1" onClick={() => setSelectedPlanId(p._id === selectedPlanId ? null : p._id)}>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-semibold text-sm">{p.title}</h4>
+                            <Badge variant="outline" className="text-[10px] h-4">{p.duration} Days</Badge>
+                          </div>
+                          {p.description && <p className="text-xs text-muted-foreground mt-1">{p.description}</p>}
+                        </div>
+                        <div className="flex items-center gap-2">
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-8 text-xs px-3"
+                            onClick={() => setShowAssignModal(p)}
+                          >
+                            Assign Members
+                          </Button>
+                          <Button 
+                            variant={selectedPlanId === p._id ? "default" : "ghost"}
+                            size="sm" 
+                            className="h-8 text-xs px-3"
+                            onClick={() => setSelectedPlanId(p._id === selectedPlanId ? null : p._id)}
+                          >
+                            {selectedPlanId === p._id ? "Viewing Progress" : "View Progress"}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </DashboardCard>
+
+            {selectedPlanId && (
+              <DashboardCard
+                title="Member Progress"
+                description={`Tracking completion for: ${plans.find(p => p._id === selectedPlanId)?.title}`}
+                icon={<Activity className="h-5 w-5 text-success" />}
+                gradient="gradient-leader"
+              >
+                <div className="space-y-3">
+                  {progressList.length === 0 ? (
+                    <p className="text-sm text-muted-foreground italic py-8 text-center italic">No members assigned to this plan yet.</p>
+                  ) : (
+                    <div className="rounded-md border overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Member</TableHead>
+                            <TableHead>Start Date</TableHead>
+                            <TableHead>Progress</TableHead>
+                            <TableHead className="text-right">%</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {progressList.map((entry) => (
+                            <TableRow key={entry._id}>
+                              <TableCell>
+                                <div className="flex flex-col">
+                                  <span className="text-sm font-medium">{entry.memberName}</span>
+                                  <span className="text-[10px] text-muted-foreground">{entry.memberEmail}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-xs">{entry.startDate}</TableCell>
+                              <TableCell className="w-[120px]">
+                                <div className="space-y-1">
+                                  <Progress value={entry.percentComplete} className="h-1.5" />
+                                  <p className="text-[10px] text-muted-foreground">{entry.completedCount} / {entry.totalDays} days</p>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right font-medium text-xs">{entry.percentComplete}%</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </div>
+              </DashboardCard>
+            )}
+          </div>
+
+          <div className="space-y-6">
+            <DashboardCard
+              title="Overview"
+              icon={<TrendingUp className="h-5 w-5 text-success" />}
+              gradient="gradient-leader"
+            >
+              <div className="space-y-4">
+                <div className="p-5 rounded-2xl bg-muted/30 border border-primary/5 text-center shadow-inner">
+                  <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-widest font-bold">Total Active Plans</p>
+                  <p className="text-4xl font-extrabold tracking-tighter text-primary">{plans.length}</p>
+                </div>
+                
+                <div className="p-4 rounded-xl bg-success/5 border border-success/10 flex items-start gap-3">
+                  <Sparkles className="h-4 w-4 text-success mt-0.5" />
+                  <div>
+                    <p className="text-[11px] font-semibold text-success uppercase">Quick Assign</p>
+                    <p className="text-[10px] text-muted-foreground leading-relaxed mt-0.5">
+                      Assign a 7-day foundation plan to all new members to help them start their journey.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </DashboardCard>
+          </div>
+        </div>
+      </div>
+
+      {/* Create Plan Modal */}
+      <Dialog open={showCreatePlan} onOpenChange={setShowCreatePlan}>
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden glass-strong bg-background/95">
+          <DialogHeader className="p-6 pb-2">
+            <DialogTitle>Create Reading Plan</DialogTitle>
+            <DialogDescription>Design a daily scripture journey for your ministry.</DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Plan Title</Label>
+                <Input placeholder="e.g. 7 Days of Hope" value={newPlan.title} onChange={e => setNewPlan(prev => ({ ...prev, title: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Duration (Days)</Label>
+                <div className="flex items-center gap-2">
+                  <Input type="number" min="1" max="365" value={newPlan.duration} onChange={e => setNewPlan(prev => ({ ...prev, duration: parseInt(e.target.value) || 1 }))} />
+                  <span className="text-sm text-muted-foreground italic shrink-0">days</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Description (Optional)</Label>
+              <Textarea placeholder="What is the focus of this plan?" value={newPlan.description} onChange={e => setNewPlan(prev => ({ ...prev, description: e.target.value }))} rows={2} />
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <Label className="text-primary font-bold">Daily Readings</Label>
+              <div className="space-y-3">
+                {readings.map((r, idx) => (
+                  <div key={idx} className="flex flex-col sm:flex-row items-start sm:items-center gap-2 p-3 rounded-lg bg-muted/20 border border-primary/5">
+                    <span className="text-xs font-bold w-12 text-primary">Day {r.dayNumber}</span>
+                    <Input 
+                      placeholder="Scripture reference (e.g. Genesis 1-2)" 
+                      value={r.scripture} 
+                      className="flex-1 h-9"
+                      onChange={e => {
+                        const nextReadings = [...readings];
+                        nextReadings[idx].scripture = e.target.value;
+                        setReadings(nextReadings);
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6 border-t bg-muted/5 flex justify-end gap-3">
+            <Button variant="ghost" onClick={() => setShowCreatePlan(false)} disabled={isCreating}>Cancel</Button>
+            <Button onClick={handleCreatePlan} disabled={isCreating} className="gradient-leader px-8">
+              {isCreating ? "Creating..." : "Create Plan"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Assign Plan Modal */}
+      <Dialog open={!!showAssignModal} onOpenChange={() => setShowAssignModal(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Assign Plan</DialogTitle>
+            <DialogDescription>Assign "{showAssignModal?.title}" to members.</DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Start Date</Label>
+              <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Select Members</Label>
+              <div className="max-h-[300px] overflow-y-auto border rounded-xl divide-y">
+                {members.length === 0 ? (
+                  <p className="p-4 text-sm text-muted-foreground italic">No members available.</p>
+                ) : (
+                  members.map(m => (
+                    <div 
+                      key={m._id} 
+                      className={`p-3 flex items-center justify-between cursor-pointer hover:bg-primary/5 transition-colors ${selectedMembers.includes(m._id) ? 'bg-primary/5' : ''}`}
+                      onClick={() => {
+                        if (selectedMembers.includes(m._id)) {
+                          setSelectedMembers(selectedMembers.filter(id => id !== m._id));
+                        } else {
+                          setSelectedMembers([...selectedMembers, m._id]);
+                        }
+                      }}
+                    >
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">{m.name}</span>
+                        <span className="text-[10px] text-muted-foreground">{m.email}</span>
+                      </div>
+                      <div className={`h-5 w-5 rounded-md border flex items-center justify-center transition-colors ${selectedMembers.includes(m._id) ? 'bg-primary border-primary' : 'border-input'}`}>
+                        {selectedMembers.includes(m._id) && <Plus className="h-3 w-3 text-white" />}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="flex justify-between items-center px-1">
+                <p className="text-[10px] text-muted-foreground">{selectedMembers.length} members selected</p>
+                <Button variant="ghost" className="h-6 text-[10px]" onClick={() => setSelectedMembers(members.map(m => m._id))}>Select All</Button>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowAssignModal(null)} disabled={isAssigning}>Cancel</Button>
+            <Button onClick={handleAssignPlan} disabled={isAssigning} className="gradient-leader">
+              {isAssigning ? "Assigning..." : "Assign Plan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Layout>
+  );
+}
+
 
 export function ManageBulletinsPage() {
   const { orgSlug } = useParams<{ orgSlug: string }>();

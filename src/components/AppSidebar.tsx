@@ -62,6 +62,7 @@ const navByRole: Record<UserRole, { label: string; items: NavItem[] }[]> = {
         { title: "Ministry Stats", url: "/ministry-stats", icon: BarChart3 },
         { title: "Manage Events", url: "/manage-events", icon: Calendar },
         { title: "Manage Bulletins", url: "/manage-bulletins", icon: FileText },
+        { title: "Manage Bible Reading", url: "/manage-bible-reading", icon: BookOpen },
         { title: "Members", url: "/members", icon: Users },
         { title: "Attendance", url: "/attendance", icon: ClipboardCheck },
         { title: "Follow Ups", url: "/follow-ups", icon: ClipboardList },

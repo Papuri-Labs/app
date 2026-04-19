@@ -9,10 +9,11 @@ interface DashboardCardProps {
   children: ReactNode;
   className?: string;
   gradient?: string;
+  action?: ReactNode;
   onClick?: () => void;
 }
 
-export function DashboardCard({ title, description, icon, children, className, gradient, onClick }: DashboardCardProps) {
+export function DashboardCard({ title, description, icon, children, className, gradient, action, onClick }: DashboardCardProps) {
   const barGradientMap: Record<string, string> = {
     "gradient-newcomer": "gradient-bar-newcomer",
     "gradient-member": "gradient-bar-member",
@@ -33,9 +34,12 @@ export function DashboardCard({ title, description, icon, children, className, g
             {icon}
           </div>
         )}
-        <div>
-          <CardTitle className="text-base font-semibold">{title}</CardTitle>
-          {description && <p className="text-xs text-muted-foreground mt-0.5">{description}</p>}
+        <div className="flex-1 flex items-center justify-between">
+          <div>
+            <CardTitle className="text-base font-semibold">{title}</CardTitle>
+            {description && <p className="text-xs text-muted-foreground mt-0.5">{description}</p>}
+          </div>
+          {action && <div className="ml-2">{action}</div>}
         </div>
       </CardHeader>
       <CardContent>{children}</CardContent>

@@ -23,6 +23,7 @@ import {
   MinistryStatsPage,
   ManageEventsPage,
   ManageBulletinsPage,
+  ManageBibleReadingPage,
   MembersPage,
   FollowUpsPage,
   AttendancePage,
@@ -62,7 +63,7 @@ const App = () => (
     <AuthProvider>
       <ViewModeProvider>
         <TooltipProvider>
-          <BrowserRouter>
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <ThemeProvider>
               <Toaster />
               <Sonner />
@@ -98,6 +99,7 @@ const App = () => (
                 <Route path="/:orgSlug/ministry-stats" element={<MinistryStatsPage />} />
                 <Route path="/:orgSlug/manage-events" element={<ManageEventsPage />} />
                 <Route path="/:orgSlug/manage-bulletins" element={<ManageBulletinsPage />} />
+                <Route path="/:orgSlug/manage-bible-reading" element={<ManageBibleReadingPage />} />
                 <Route path="/:orgSlug/members" element={<MembersPage />} />
                 <Route path="/:orgSlug/attendance" element={<AttendancePage />} />
                 <Route path="/:orgSlug/follow-ups" element={<FollowUpsPage />} />

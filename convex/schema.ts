@@ -399,6 +399,47 @@ export default defineSchema({
     .index("by_member", ["memberId"])
     .index("by_leader", ["leaderId"])
     .index("by_org_and_member", ["organizationId", "memberId"]),
+  
+  // Bible Reading System
+  bible_reading_plans: defineTable({
+    organizationId: v.id("organizations"),
+    title: v.string(),
+    description: v.optional(v.string()),
+    duration: v.number(), // Total number of days
+    externalLink: v.optional(v.string()), // Reference to your other bible app
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+  }).index("by_organization", ["organizationId"]),
+
+  bible_reading_plan_days: defineTable({
+    planId: v.id("bible_reading_plans"),
+    dayNumber: v.number(),
+    scripture: v.string(),
+    notes: v.optional(v.string()),
+  }).index("by_plan", ["planId"])
+    .index("by_plan_and_day", ["planId", "dayNumber"]),
+
+  bible_reading_assignments: defineTable({
+    organizationId: v.id("organizations"),
+    planId: v.id("bible_reading_plans"),
+    memberId: v.id("users"),
+    startDate: v.string(), // YYYY-MM-DD
+    status: v.union(v.literal("active"), v.literal("completed")),
+    assignedBy: v.id("users"),
+    createdAt: v.number(),
+  }).index("by_organization", ["organizationId"])
+    .index("by_member", ["memberId"])
+    .index("by_plan", ["planId"])
+    .index("by_org_and_member", ["organizationId", "memberId"]),
+
+  bible_reading_progress: defineTable({
+    organizationId: v.id("organizations"),
+    assignmentId: v.id("bible_reading_assignments"),
+    dayNumber: v.number(),
+    completedAt: v.number(),
+  }).index("by_organization", ["organizationId"])
+    .index("by_assignment", ["assignmentId"])
+    .index("by_assignment_and_day", ["assignmentId", "dayNumber"]),
 });
 
 
