@@ -71,35 +71,52 @@ export const RESERVED_ROUTE_KEYWORDS = [
   "follow-ups", "prayer-requests", "assignments", "gallery",
   "reports", "system-stats", "manage-users", "onboarding-maintenance",
   "schedule-maintenance", "giving-maintenance", "ministries", "roles",
-  "settings", "record-giving", "transaction-history", "giving-reports", "my-church",
+  "settings", "record-giving", "transaction-history", "giving-reports", "my-church", "auth"
 ];
 
 /** Extract the org slug from the current URL, falling back to "my-church" */
 function getOrgSlugFromUrl(): string {
+  const params = new URLSearchParams(window.location.search);
+  const queryOrg = params.get("org");
+  
+  if (queryOrg && !RESERVED_ROUTE_KEYWORDS.includes(queryOrg)) {
+    localStorage.setItem("orgSlug", queryOrg);
+    return queryOrg;
+  }
+
   const pathParts = window.location.pathname.split("/");
   const slug = pathParts[1] || "my-church";
   const effective = RESERVED_ROUTE_KEYWORDS.includes(slug) ? "my-church" : slug;
   // Persist so login/signup pages can recover it even after Clerk redirects
   if (effective !== "my-church") {
-    sessionStorage.setItem("orgSlug", effective);
+    localStorage.setItem("orgSlug", effective);
   }
   return effective;
 }
 
-/** Read slug from Clerk's redirect_url param or sessionStorage */
+/** Read slug from Clerk's redirect_url param or localStorage */
 export function getPersistedOrgSlug(): string {
-  // Clerk appends ?redirect_url=... when redirecting unauthenticated users
+  // 1. Primary Source of Truth: Active Session Storage
+  // This is set the moment a user explicitly visits a church's landing or login page.
+  const storedValue = localStorage.getItem("orgSlug");
+  if (storedValue && !RESERVED_ROUTE_KEYWORDS.includes(storedValue)) {
+    return storedValue;
+  }
+
+  // 2. Fallback: Clerk's Redirect URL
+  // Used if a fresh guest clicks a direct deep-link to a protected route
   const params = new URLSearchParams(window.location.search);
   const redirectUrl = params.get("redirect_url") || params.get("redirect") || "";
   if (redirectUrl) {
     const parts = decodeURIComponent(redirectUrl).split("/");
     const slugFromRedirect = parts[1] || "";
     if (slugFromRedirect && !RESERVED_ROUTE_KEYWORDS.includes(slugFromRedirect)) {
-      sessionStorage.setItem("orgSlug", slugFromRedirect);
+      localStorage.setItem("orgSlug", slugFromRedirect);
       return slugFromRedirect;
     }
   }
-  return sessionStorage.getItem("orgSlug") || "my-church";
+  
+  return "my-church";
 }
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -134,12 +151,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (isLoaded && isSignedIn && clerkUser) {
       // Prioritize Clerk Metadata as the Source of Truth, then the URL
-      const metadataSlug = clerkUser.publicMetadata?.orgSlug as string;
       const urlSlug = getOrgSlugFromUrl();
       const isReserved = RESERVED_ROUTE_KEYWORDS.includes(urlSlug);
       
       const effectiveSlug = isReserved 
-        ? (metadataSlug || "my-church") 
+        ? (getPersistedOrgSlug() || "my-church") 
         : (urlSlug || "my-church");
 
       const syncKey = `${clerkUser.id}-${effectiveSlug}`;

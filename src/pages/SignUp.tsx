@@ -42,7 +42,7 @@ export default function SignUp() {
 
         <ClerkSignUp
           signInUrl={`/${slug}/login`}
-          forceRedirectUrl="/auth/redirect"
+          forceRedirectUrl={`/auth/redirect?org=${slug}`}
         />
       </div>
     </div>

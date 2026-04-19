@@ -44,6 +44,20 @@ export const getPublic = query({
     },
 });
 
+export const listPublic = query({
+    args: {},
+    handler: async (ctx) => {
+        // Return a list of all organizations for the landing page
+        // Only return safe public fields
+        const orgs = await ctx.db.query("organizations").collect();
+        return orgs.map(org => ({
+            _id: org._id,
+            name: org.name,
+            slug: org.slug,
+        })).filter(org => org.slug !== "auth" && org.slug !== "my-church");
+    },
+});
+
 export const update = mutation({
     args: {
         organizationId: v.id("organizations"),

@@ -41,7 +41,7 @@ export default function Login() {
 
         <SignIn
           signUpUrl={`/${slug}/signup`}
-          forceRedirectUrl="/auth/redirect"
+          forceRedirectUrl={`/auth/redirect?org=${slug}`}
         />
       </div>
     </div>

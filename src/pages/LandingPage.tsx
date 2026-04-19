@@ -1,5 +1,8 @@
-import { useParams, Link } from "react-router-dom";
-import { Church, Users, BookOpen, Bell, Heart, BarChart3, ArrowRight, Star, ChevronRight } from "lucide-react";
+import { useState } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { Church, Users, BookOpen, Bell, Heart, BarChart3, ArrowRight, Star, ChevronRight, Building, Search } from "lucide-react";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 
 const features = [
   {
@@ -77,8 +80,19 @@ const testimonials = [
 ];
 
 export default function LandingPage() {
+  const navigate = useNavigate();
   const { orgSlug } = useParams<{ orgSlug?: string }>();
   const slug = orgSlug || "my-church";
+  
+  const [searchQuery, setSearchQuery] = useState("");
+  const organizations = useQuery(api.organizations.listPublic) || [];
+
+  const filteredOrgs = organizations
+    .filter((org) => 
+      org.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      org.slug.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    .slice(0, 5);
 
   return (
     <div className="min-h-screen bg-[#0a0f1e] text-white overflow-x-hidden">
@@ -93,20 +107,7 @@ export default function LandingPage() {
             <span className="text-amber-400">puri</span>
           </span>
         </div>
-        <div className="flex items-center gap-3">
-          <Link
-            to={`/${slug}/login`}
-            className="text-sm font-medium text-white/70 hover:text-white transition-colors px-4 py-2 rounded-lg hover:bg-white/5"
-          >
-            Sign In
-          </Link>
-          <Link
-            to={`/${slug}/signup`}
-            className="text-sm font-semibold px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white shadow-lg shadow-blue-500/25 transition-all duration-200 hover:shadow-blue-500/35 hover:-translate-y-px"
-          >
-            Get Started
-          </Link>
-        </div>
+        {/* Auth Buttons removed per user request */}
       </nav>
 
       {/* ─── Hero ────────────────────────────────────────────────────────── */}
@@ -159,22 +160,66 @@ export default function LandingPage() {
             together — all in real time.
           </p>
 
-          {/* CTAs */}
-          <div className="flex flex-col sm:flex-row items-center gap-4">
-            <Link
-              to={`/${slug}/signup`}
-              className="group flex items-center gap-2.5 px-8 py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-semibold shadow-2xl shadow-blue-500/30 transition-all duration-300 hover:shadow-blue-500/40 hover:-translate-y-0.5 text-base"
-            >
-              Join Your Church
-              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-            </Link>
-            <Link
-              to={`/${slug}/login`}
-              className="flex items-center gap-2 px-8 py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white/80 hover:text-white font-semibold border border-white/10 hover:border-white/20 transition-all duration-200 text-base"
-            >
-              Sign In
-              <ChevronRight className="h-4 w-4" />
-            </Link>
+          {/* CTAs removed per user request */}
+
+          {/* Quick Find Church Selector */}
+          <div className="relative z-20 mt-12 w-full max-w-2xl bg-[#0a0f1e]/40 p-6 sm:p-8 rounded-3xl border border-white/5 backdrop-blur-xl">
+            <p className="text-white/40 text-xs font-bold tracking-widest uppercase mb-6 flex items-center justify-center gap-2">
+              <Building className="h-3 w-3" />
+              Discover Your Community
+            </p>
+
+            <div className="relative mb-6">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-4 w-4 text-white/40" />
+              </div>
+              <input
+                type="text"
+                placeholder="Search for your church..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-sm"
+              />
+            </div>
+
+            {organizations.length === 0 ? (
+                <div className="text-white/30 text-sm animate-pulse text-center">Loading churches...</div>
+            ) : filteredOrgs.length === 0 ? (
+                <div className="text-white/40 text-sm text-center py-4">No churches found.</div>
+            ) : (
+                <div className="flex flex-col gap-3">
+                  {filteredOrgs.map((org) => (
+                    <button
+                      key={org._id}
+                      onClick={() => navigate(`/${org.slug}/login`)}
+                      className={`flex items-center gap-4 px-5 py-4 w-full rounded-2xl transition-all ${
+                        slug === org.slug 
+                          ? "bg-blue-500/10 border border-blue-500/30 shadow-[0_0_20px_rgba(59,130,246,0.15)] ring-1 ring-blue-500/50" 
+                          : "bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/15"
+                      }`}
+                    >
+                      <div className={`h-10 w-10 rounded-xl flex items-center justify-center shadow-lg shrink-0 ${
+                        slug === org.slug 
+                          ? "bg-gradient-to-br from-blue-500 to-blue-600" 
+                          : "bg-gradient-to-br from-white/10 to-white/5"
+                      }`}>
+                        <Church className={`h-5 w-5 ${slug === org.slug ? "text-white" : "text-white/50"}`} />
+                      </div>
+                      <span className={`text-base font-semibold tracking-wide truncate ${
+                        slug === org.slug ? "text-white" : "text-white/70"
+                      }`}>
+                        {org.name}
+                      </span>
+                      <ChevronRight className="h-5 w-5 ml-auto text-white/20 shrink-0" />
+                    </button>
+                  ))}
+                  {organizations.length > 5 && searchQuery === "" && (
+                    <p className="text-xs text-center text-white/30 mt-2">
+                      Use the search bar to find more communities.
+                    </p>
+                  )}
+                </div>
+            )}
           </div>
 
           {/* Hero Image */}
@@ -299,21 +344,7 @@ export default function LandingPage() {
               <p className="text-white/60 text-lg mb-8 max-w-lg mx-auto">
                 Join thousands of churches already using Papuri to connect their congregations and accelerate ministry impact.
               </p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <Link
-                  to={`/${slug}/signup`}
-                  className="group flex items-center gap-2 px-8 py-4 rounded-2xl bg-white text-blue-700 font-bold shadow-xl shadow-white/10 hover:shadow-white/20 transition-all duration-300 hover:-translate-y-0.5 text-base"
-                >
-                  Create Your Account
-                  <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                </Link>
-                <Link
-                  to={`/${slug}/login`}
-                  className="px-8 py-4 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 text-white font-semibold transition-all duration-200 text-base"
-                >
-                  Already a member? Sign In
-                </Link>
-              </div>
+              {/* CTAs removed per user request */}
             </div>
           </div>
         </div>
@@ -334,10 +365,7 @@ export default function LandingPage() {
           <p className="text-white/25 text-xs text-center">
             © {new Date().getFullYear()} Papuri · Church Management Platform · Built with ♥ for communities of faith
           </p>
-          <div className="flex items-center gap-5 text-xs text-white/35">
-            <Link to={`/${slug}/login`} className="hover:text-white/70 transition-colors">Sign In</Link>
-            <Link to={`/${slug}/signup`} className="hover:text-white/70 transition-colors">Sign Up</Link>
-          </div>
+          {/* Footer links removed per user request */}
         </div>
       </footer>
 

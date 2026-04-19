@@ -17,7 +17,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return slug;
   };
 
-  const orgSlug = getSlugFromPath() || getPersistedOrgSlug();
+  // 1. User's Assigned Org (Source of Truth)
+  // 2. URL Path Slug
+  // 3. Persisted Session Slug
+  // 4. Default "my-church"
+  const orgSlug = user?.organizationSlug && user.organizationSlug !== "my-church" 
+    ? user.organizationSlug 
+    : (getSlugFromPath() || getPersistedOrgSlug());
 
   // Slug-aware settings: Prioritize the slug from the URL to ensure correct branding
   const settings = useQuery(api.settings.get, { orgSlug });

@@ -75,21 +75,18 @@ export const syncUser = mutation({
             .first();
 
         if (existingUser) {
-            // Data Healing: If user is stuck in a RESERVED or PLACEHOLDER slug org (like "dashboard" or "my-church"), move them
-            const currentOrg = await ctx.db.get(existingUser.organizationId);
+            const currentOrg = existingUser.organizationId ? await ctx.db.get(existingUser.organizationId) : null;
             const INVALID_SLUGS = [
                 "login", "signup", "onboarding", "profile", "dashboard", 
                 "settings", "admin", "leader", "member", "newcomer", "my-church"
             ];
             
-            // Profile Sync (Convex is now source of truth for name/Role/Org once established)
             const updates: any = {
                 email: args.email,
                 avatar: args.avatar,
                 isActive: true,
             };
 
-            // Only sync name if Convex name is currently empty, generic "User", or matching Clerk's initial sync
             const isInitialOrGeneric = !existingUser.name || existingUser.name === "User" || existingUser.name === args.email;
             if (isInitialOrGeneric) {
                 updates.name = args.name;
@@ -97,8 +94,8 @@ export const syncUser = mutation({
 
             // Only update organization if it's currently invalid or placeholder
             if (!currentOrg || !currentOrg.slug || INVALID_SLUGS.includes(currentOrg.slug)) {
-                console.log(`[users:syncUser] Auto-assigning user ${args.email} to org: ${args.orgSlug}`);
                 updates.organizationId = await getOrCreateOrganization(ctx, args.orgSlug);
+                console.log(`[users:syncUser] Auto-assigned user ${args.email} to requested org: ${args.orgSlug}`);
             }
 
             await ctx.db.patch(existingUser._id, updates);

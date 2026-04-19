@@ -1,7 +1,8 @@
 import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, getPersistedOrgSlug } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 /**
  * Dedicated post-authentication redirect handler.
@@ -28,10 +29,21 @@ export default function AuthRedirectPage() {
     if (isAuthenticated && user) {
       // Convex is the source of truth for the org slug
       const slug = user.organizationSlug;
+      const requestedSlug = getPersistedOrgSlug();
 
       if (slug && slug !== "my-church") {
         redirected.current = true;
         console.log(`[AuthRedirect] Redirecting authenticated user to /${slug}/dashboard`);
+        
+        if (requestedSlug && requestedSlug !== slug && requestedSlug !== "my-church") {
+            localStorage.setItem("orgSlug", slug);
+            toast.info(`Redirected to your home workspace`, {
+                description: `You tried to sign in to '${requestedSlug}', but your account belongs to '${slug}'.`,
+                position: typeof window !== 'undefined' && window.innerWidth < 768 ? "bottom-center" : "bottom-right",
+                duration: 6000,
+            });
+        }
+
         navigate(`/${slug}/dashboard`, { replace: true });
       } else {
         // Slug is missing or placeholder — still go to dashboard, Layout will fix it
