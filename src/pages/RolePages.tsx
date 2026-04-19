@@ -784,13 +784,17 @@ export function BulletinsPage() {
 }
 
 export function BibleReadingPage() {
-  const activePlanData = useQuery(api.biblePlan.getMyActivePlan);
+  const activePlansData = useQuery(api.biblePlan.getMyActivePlans);
   const markAsRead = useMutation(api.biblePlan.markDayComplete);
   const [isMarking, setIsMarking] = useState(false);
+  const [reflectionModalDay, setReflectionModalDay] = useState<number | null>(null);
+  const [reflectionText, setReflectionText] = useState("");
+  const [activeReflectAssignmentId, setActiveReflectAssignmentId] = useState<string | null>(null);
+  const [selectedPlanId, setSelectedPlanId] = useState<string>("");
 
-  if (activePlanData === undefined) return <div className="p-8 text-center text-muted-foreground animate-pulse">Loading reading plan...</div>;
+  if (activePlansData === undefined) return <div className="p-8 text-center text-muted-foreground animate-pulse">Loading reading plans...</div>;
 
-  if (!activePlanData) {
+  if (activePlansData.length === 0) {
     return (
       <Layout>
         <div className="space-y-6 animate-fade-in">
@@ -803,9 +807,9 @@ export function BibleReadingPage() {
             <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-6">
               <BookOpen className="h-8 w-8 text-primary opacity-50" />
             </div>
-            <h3 className="text-lg font-semibold">No active plan found</h3>
+            <h3 className="text-lg font-semibold">No active plans found</h3>
             <p className="text-sm text-muted-foreground mt-2 max-w-[300px]">
-              You haven't been assigned a reading plan yet. Contact your ministry leader to get started!
+              You haven't been assigned any reading plans yet. Contact your ministry leader to get started!
             </p>
           </div>
         </div>
@@ -813,33 +817,19 @@ export function BibleReadingPage() {
     );
   }
 
-  const { assignment, plan, progress, readings } = activePlanData as any;
-  
-  // Calculate current day based on start date
-  const start = new Date(assignment.startDate);
-  const now = new Date();
-  start.setHours(0, 0, 0, 0);
-  now.setHours(0, 0, 0, 0);
-  
-  // Difference in days (handles same day correctly)
-  const diffTime = now.getTime() - start.getTime();
-  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-  const todayDay = Math.max(1, diffDays + 1); // 1-indexed
-
-  const todayReading = readings.find((r: any) => r.dayNumber === todayDay);
-  const isCompletedToday = progress.includes(todayDay);
-  const percentComplete = Math.round((progress.length / (plan?.duration || 1)) * 100);
-
-  const handleMarkAsRead = async (dayNum: number = todayDay) => {
-    if (isMarking || progress.includes(dayNum)) return;
+  const handleMarkAsReadSubmit = async () => {
+    if (isMarking || reflectionModalDay === null || !activeReflectAssignmentId) return;
     setIsMarking(true);
     try {
       await markAsRead({
-        assignmentId: assignment._id,
-        dayNumber: dayNum,
+        assignmentId: activeReflectAssignmentId as any,
+        dayNumber: reflectionModalDay,
+        reflection: reflectionText.trim() === "" ? undefined : reflectionText.trim(),
         tracing: getTracing()
       });
       toast.success("Reading completed! Well done.");
+      setReflectionModalDay(null);
+      setActiveReflectAssignmentId(null);
     } catch (e: any) {
       toast.error("Error: " + e.message);
     } finally {
@@ -847,162 +837,289 @@ export function BibleReadingPage() {
     }
   };
 
+  const openReflectionModal = (dayNum: number, assignmentId: string) => {
+    setReflectionModalDay(dayNum);
+    setActiveReflectAssignmentId(assignmentId);
+    setReflectionText("");
+  };
+  const currentTabValue = selectedPlanId || activePlansData?.[0]?.plan?._id || "";
+  const currentPlanIndex = activePlansData?.findIndex((p: any) => p.plan?._id === currentTabValue);
+  const selectedPlanData = activePlansData?.[currentPlanIndex !== -1 ? currentPlanIndex : 0];
+
+  let displayDay = 1;
+  let displayStreak = 0;
+  let displayTitle = "Bible Reading";
+  let displayDuration = 0;
+
+  if (selectedPlanData) {
+    const { assignment, plan } = selectedPlanData;
+    const start = new Date(assignment.startDate);
+    const now = new Date();
+    start.setHours(0, 0, 0, 0);
+    now.setHours(0, 0, 0, 0);
+    const diffTime = now.getTime() - start.getTime();
+    displayDay = Math.max(1, Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1);
+    displayStreak = selectedPlanData.currentStreak || 0;
+    displayTitle = plan?.title || "Bible Reading";
+    displayDuration = plan?.duration || 0;
+  }
+
   return (
     <Layout>
-      <div className="space-y-6 animate-fade-in pb-20 max-w-4xl mx-auto">
-        <PageHeader
-          title={plan?.title || "Bible Reading"}
-          subtitle={`Day ${todayDay} of ${plan?.duration || 0}`}
-          gradient="gradient-member"
-        />
+      <div className="space-y-6 animate-fade-in pb-20">
+        {/* Global Page Header */}
+        <div className="gradient-member glass rounded-2xl p-6 relative overflow-hidden mb-6">
+          <div className="absolute top-0 right-0 w-48 h-48 rounded-full bg-primary/8 -translate-y-1/2 translate-x-1/3 blur-3xl" />
+          <div className="absolute bottom-0 left-0 w-32 h-32 rounded-full bg-info/6 translate-y-1/2 -translate-x-1/4 blur-2xl" />
+          <h1 className="text-2xl font-bold mb-1 relative">Bible Reading</h1>
+          <p className="text-muted-foreground relative text-sm">
+            Engage with scripture and track your daily reading progress.
+          </p>
+        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-2 space-y-6">
-            {/* Today's Focus */}
-            <DashboardCard
-              title="Today's Scripture"
-              description={format(now, "EEEE, MMMM do")}
-              icon={<Sparkles className="h-5 w-5 text-primary" />}
-              gradient="gradient-member"
-            >
-              <div className="space-y-6 p-2">
-                {todayReading ? (
-                  <>
-                    <div className="p-6 rounded-2xl bg-primary/5 border border-primary/10 shadow-sm">
-                      <h3 className="text-xl font-bold text-primary mb-2">{todayReading.scripture}</h3>
-                      {todayReading.notes && (
-                        <p className="text-sm text-muted-foreground italic border-l-2 border-primary/20 pl-4 py-1">
-                          "{todayReading.notes}"
-                        </p>
-                      )}
-                    </div>
-                    
-                    <Button 
-                      onClick={() => handleMarkAsRead(todayDay)} 
-                      disabled={isMarking || isCompletedToday}
-                      className="w-full h-12 text-base font-semibold shadow-lg transition-all hover:scale-[1.01]"
-                      variant={isCompletedToday ? "outline" : "default"}
-                    >
-                      {isCompletedToday ? (
-                        <><CheckCircle2 className="h-5 w-5 mr-2 text-success" /> Completed for Today</>
-                      ) : (
-                        <><BookOpen className="h-5 w-5 mr-2" /> Mark as Read</>
-                      )}
-                    </Button>
-                  </>
-                ) : (
-                  <div className="py-8 text-center bg-muted/20 rounded-2xl border border-dashed">
-                    <p className="text-sm text-muted-foreground">No specific reading assigned for this day.</p>
-                  </div>
-                )}
-              </div>
-            </DashboardCard>
+        <Tabs value={currentTabValue} onValueChange={setSelectedPlanId} className="w-full">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-0 mb-4">
+            <div className="flex-1 w-full">
+              <PageHeader
+                title={displayTitle}
+                subtitle={`Day ${displayDay} of ${displayDuration}`}
+                gradient="gradient-member"
+              />
+            </div>
+            {displayStreak >= 0 && (
+              <Badge className="bg-orange-500/10 text-orange-600 border-orange-500/20 text-sm py-1.5 px-4 self-start sm:self-auto flex items-center gap-1.5 shadow-sm">
+                <span className="text-xl leading-none -mt-0.5">🔥</span> {displayStreak} Day Streak
+              </Badge>
+            )}
+          </div>
 
-            {/* Timeline View */}
-            <DashboardCard
-              title="Reading Timeline"
-              icon={<Zap className="h-5 w-5 text-warm" />}
-              gradient="gradient-member"
-            >
-              <div className="relative pl-6 space-y-8 py-4">
-                {/* Timeline vertical bar */}
-                <div className="absolute left-[7px] top-6 bottom-6 w-0.5 bg-muted-foreground/10" />
-                
-                {[...readings].sort((a: any, b: any) => a.dayNumber - b.dayNumber).map((r: any) => {
-                  const isPast = r.dayNumber < todayDay;
-                  const isToday = r.dayNumber === todayDay;
-                  const isDone = progress.includes(r.dayNumber);
+          {activePlansData.length > 1 && (
+            <div className="flex mb-6">
+              <TabsList className="bg-muted/50 p-1 border">
+                {activePlansData.map((planData: any) => (
+                  <TabsTrigger 
+                    key={planData.plan?._id} 
+                    value={planData.plan?._id} 
+                    className="px-6 py-2"
+                  >
+                    {planData.plan?.title || "Plan"}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
+          )}
 
-                  return (
-                    <div key={r.dayNumber} className="relative group">
-                      {/* Timeline Dot */}
-                      <div className={cn(
-                        "absolute -left-[24px] top-1 px-1 flex items-center justify-center transition-all",
-                        isDone ? "text-success" : isToday ? "text-primary scale-125" : "text-muted-foreground/30"
-                      )}>
-                        {isDone ? (
-                          <div className="h-4 w-4 rounded-full bg-success flex items-center justify-center">
-                            <Check className="h-2.5 w-2.5 text-white" />
-                          </div>
-                        ) : (
-                          <div className={cn(
-                            "h-3 w-3 rounded-full border-2",
-                            isToday ? "bg-primary border-primary animate-pulse" : "bg-background border-current"
-                          )} />
-                        )}
-                      </div>
+          {activePlansData.map((planData: any, index: number) => {
+            const { assignment, plan, progress, progressData, readings } = planData;
+            
+            // Calculate current day based on start date
+            const start = new Date(assignment.startDate);
+            const now = new Date();
+            start.setHours(0, 0, 0, 0);
+            now.setHours(0, 0, 0, 0);
+            
+            // Difference in days (handles same day correctly)
+            const diffTime = now.getTime() - start.getTime();
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            const todayDay = Math.max(1, diffDays + 1); // 1-indexed
 
-                      <div className={cn(
-                        "p-4 rounded-xl border transition-all",
-                        isToday ? "glass shadow-md border-primary/20 ring-1 ring-primary/10" : "bg-muted/5 border-transparent hover:border-muted-foreground/10"
-                      )}>
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Day {r.dayNumber}</span>
-                              {isToday && <Badge className="text-[9px] h-4 bg-primary/10 text-primary border-primary/20">Current</Badge>}
+            const todayReading = readings.find((r: any) => r.dayNumber === todayDay);
+            const isCompletedToday = progress.includes(todayDay);
+            const percentComplete = Math.round((progress.length / (plan?.duration || 1)) * 100);
+
+            return (
+              <TabsContent key={assignment._id} value={plan?._id} className="mt-0 focus-visible:outline-none focus-visible:ring-0">
+                <div className="space-y-6 relative">
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="md:col-span-2 space-y-6">
+                      {/* Today's Focus */}
+                      <DashboardCard
+                        title="Today's Scripture"
+                        description={format(now, "EEEE, MMMM do")}
+                        icon={<Sparkles className="h-5 w-5 text-primary" />}
+                        gradient="gradient-member"
+                      >
+                        <div className="space-y-6 p-2">
+                          {todayReading ? (
+                            <>
+                              <div className="p-6 rounded-2xl bg-primary/5 border border-primary/10 shadow-sm">
+                                <h3 className="text-xl font-bold text-primary mb-2">{todayReading.scripture}</h3>
+                                {todayReading.notes && (
+                                  <p className="text-sm text-muted-foreground italic border-l-2 border-primary/20 pl-4 py-1">
+                                    "{todayReading.notes}"
+                                  </p>
+                                )}
+                              </div>
+                              
+                              <Button 
+                                onClick={() => openReflectionModal(todayDay, assignment._id)} 
+                                disabled={isMarking || isCompletedToday}
+                                className="w-full h-12 text-base font-semibold shadow-lg transition-all hover:scale-[1.01]"
+                                variant={isCompletedToday ? "outline" : "default"}
+                              >
+                                {isCompletedToday ? (
+                                  <><CheckCircle2 className="h-5 w-5 mr-2 text-success" /> Completed for Today</>
+                                ) : (
+                                  <><BookOpen className="h-5 w-5 mr-2" /> Mark as Read</>
+                                )}
+                              </Button>
+                            </>
+                          ) : (
+                            <div className="py-8 text-center bg-muted/20 rounded-2xl border border-dashed">
+                              <p className="text-sm text-muted-foreground">No specific reading assigned for this day.</p>
                             </div>
-                            <h4 className="font-semibold text-sm">{r.scripture}</h4>
-                          </div>
-                          {isPast && !isDone && (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-7 text-[10px] px-2 text-primary hover:bg-primary/5"
-                              onClick={() => handleMarkAsRead(r.dayNumber)}
-                            >
-                              Catch up
-                            </Button>
                           )}
                         </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </DashboardCard>
-          </div>
+                      </DashboardCard>
 
-          <div className="space-y-6">
-            <DashboardCard
-              title="Progress"
-              icon={<Activity className="h-5 w-5 text-primary" />}
-              gradient="gradient-member"
-            >
-              <div className="space-y-6">
-                <div className="text-center py-4">
-                  <div className="relative inline-flex items-center justify-center h-32 w-32 mb-4">
-                    <svg className="h-full w-full transform -rotate-90">
-                      <circle cx="64" cy="64" r="58" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-muted/10" />
-                      <circle cx="64" cy="64" r="58" stroke="currentColor" strokeWidth="8" fill="transparent" strokeDasharray={364.4} strokeDashoffset={364.4 * (1 - percentComplete / 100)} className="text-primary transition-all duration-1000" />
-                    </svg>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-3xl font-black">{percentComplete}%</span>
+                      {/* Timeline View */}
+                      <DashboardCard
+                        title="Reading Timeline"
+                        icon={<Zap className="h-5 w-5 text-warm" />}
+                        gradient="gradient-member"
+                      >
+                        <div className="relative pl-6 space-y-8 py-4">
+                          {/* Timeline vertical bar */}
+                          <div className="absolute left-[7px] top-6 bottom-6 w-0.5 bg-muted-foreground/10" />
+                          
+                          {[...readings].sort((a: any, b: any) => a.dayNumber - b.dayNumber).map((r: any) => {
+                            const isPast = r.dayNumber < todayDay;
+                            const isToday = r.dayNumber === todayDay;
+                            const isDone = progress.includes(r.dayNumber);
+
+                            return (
+                              <div key={r.dayNumber} className="relative group">
+                                {/* Timeline Dot */}
+                                <div className={cn(
+                                  "absolute -left-[24px] top-1 px-1 flex items-center justify-center transition-all",
+                                  isDone ? "text-success" : isToday ? "text-primary scale-125" : "text-muted-foreground/30"
+                                )}>
+                                  {isDone ? (
+                                    <div className="h-4 w-4 rounded-full bg-success flex items-center justify-center">
+                                      <Check className="h-2.5 w-2.5 text-white" />
+                                    </div>
+                                  ) : (
+                                    <div className={cn(
+                                      "h-3 w-3 rounded-full border-2",
+                                      isToday ? "bg-primary border-primary animate-pulse" : "bg-background border-current"
+                                    )} />
+                                  )}
+                                </div>
+
+                                <div className={cn(
+                                  "p-4 rounded-xl border transition-all",
+                                  isToday ? "glass shadow-md border-primary/20 ring-1 ring-primary/10" : "bg-muted/5 border-transparent hover:border-muted-foreground/10"
+                                )}>
+                                  <div className="flex justify-between items-start">
+                                    <div>
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Day {r.dayNumber}</span>
+                                        {isToday && <Badge className="text-[9px] h-4 bg-primary/10 text-primary border-primary/20">Current</Badge>}
+                                      </div>
+                                      <h4 className="font-semibold text-sm">{r.scripture}</h4>
+                                    </div>
+                                    {isPast && !isDone && (
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        className="h-7 text-[10px] px-2 text-primary hover:bg-primary/5"
+                                        onClick={() => openReflectionModal(r.dayNumber, assignment._id)}
+                                      >
+                                        Catch up
+                                      </Button>
+                                    )}
+                                  </div>
+                                  {isDone && progressData?.find((pd: any) => pd.dayNumber === r.dayNumber)?.reflection && (
+                                    <div className="mt-3 p-3 rounded-lg bg-primary/5 border border-primary/10 text-xs italic text-muted-foreground w-full break-words">
+                                      "{progressData.find((pd: any) => pd.dayNumber === r.dayNumber).reflection}"
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </DashboardCard>
+                    </div>
+
+                    <div className="space-y-6">
+                      <DashboardCard
+                        title="Progress"
+                        icon={<Activity className="h-5 w-5 text-primary" />}
+                        gradient="gradient-member"
+                      >
+                        <div className="space-y-6">
+                          <div className="text-center py-4">
+                            <div className="relative inline-flex items-center justify-center h-32 w-32 mb-4">
+                              <svg className="h-full w-full transform -rotate-90">
+                                <circle cx="64" cy="64" r="58" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-muted/10" />
+                                <circle cx="64" cy="64" r="58" stroke="currentColor" strokeWidth="8" fill="transparent" strokeDasharray={364.4} strokeDashoffset={364.4 * (1 - (percentComplete > 100 ? 100 : percentComplete) / 100)} className="text-primary transition-all duration-1000" />
+                              </svg>
+                              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                <span className="text-3xl font-black">{percentComplete}%</span>
+                              </div>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              <span className="font-bold text-primary">{progress.length}</span> of {plan?.duration || 0} days completed
+                            </p>
+                          </div>
+
+                          {assignment.message && (
+                            <div className="p-4 rounded-2xl bg-warm/5 border border-warm/10 relative overflow-hidden group">
+                              <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
+                                <Sparkles className="h-8 w-8 text-warm" />
+                              </div>
+                              <p className="text-[10px] font-bold text-warm uppercase mb-2 flex items-center gap-1">
+                                <CheckCircle2 className="h-3 w-3" /> Leader's Note
+                              </p>
+                              <p className="text-xs italic leading-relaxed text-muted-foreground pr-4">
+                                "{assignment.message}"
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </DashboardCard>
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    <span className="font-bold text-primary">{progress.length}</span> of {plan?.duration || 0} days completed
-                  </p>
                 </div>
-
-                {assignment.message && (
-                  <div className="p-4 rounded-2xl bg-warm/5 border border-warm/10 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
-                      <Sparkles className="h-8 w-8 text-warm" />
-                    </div>
-                    <p className="text-[10px] font-bold text-warm uppercase mb-2 flex items-center gap-1">
-                      <CheckCircle2 className="h-3 w-3" /> Leader's Note
-                    </p>
-                    <p className="text-xs italic leading-relaxed text-muted-foreground pr-4">
-                      "{assignment.message}"
-                    </p>
-                  </div>
-                )}
-              </div>
-            </DashboardCard>
-          </div>
-        </div>
+              </TabsContent>
+            );
+          })}
+        </Tabs>
       </div>
+
+      <Dialog open={reflectionModalDay !== null} onOpenChange={(open) => !open && setReflectionModalDay(null)}>
+        <DialogContent className="max-w-md p-0 overflow-hidden flex flex-col bg-white dark:bg-zinc-950 border-none shadow-2xl">
+          <DialogHeader className="p-6 pb-2">
+            <DialogTitle>Complete Reading</DialogTitle>
+            <DialogDescription>
+              Optional: Write a short reflection or verse that stood out to you today.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="p-6 pt-2 space-y-4">
+            <Textarea 
+              placeholder="What is God speaking to you today?"
+              value={reflectionText}
+              onChange={(e) => setReflectionText(e.target.value)}
+              className="min-h-[120px] bg-background text-sm"
+              autoFocus
+            />
+          </div>
+          <div className="p-6 border-t bg-muted/5 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setReflectionModalDay(null)} disabled={isMarking} className="h-10">
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleMarkAsReadSubmit} 
+              disabled={isMarking}
+              className="bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-8 shadow-md font-semibold border-none transition-all active:scale-95"
+            >
+              {isMarking ? "Saving..." : "Save & Complete"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }
@@ -1358,12 +1475,17 @@ export function ManageBibleReadingPage() {
 
   const createPlan = useMutation(api.biblePlan.createPlan);
   const assignPlan = useMutation(api.biblePlan.assignPlan);
+  const sendReminder = useMutation(api.biblePlan.sendReminder);
+  const removeAssignments = useMutation(api.biblePlan.removeAssignments);
+  const deletePlan = useMutation(api.biblePlan.deletePlan);
 
   // Create Plan State
   const [showCreatePlan, setShowCreatePlan] = useState(false);
   const [newPlan, setNewPlan] = useState({ title: "", description: "", duration: 1 });
   const [readings, setReadings] = useState<any[]>([]);
   const [isCreating, setIsCreating] = useState(false);
+  const [planToDelete, setPlanToDelete] = useState<string | null>(null);
+  const [isDeletingPlan, setIsDeletingPlan] = useState(false);
 
   // Assign Plan State
   const [showAssignModal, setShowAssignModal] = useState<any>(null); // Plan object
@@ -1377,7 +1499,62 @@ export function ManageBibleReadingPage() {
 
   // Monitor State
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const [remindingIds, setRemindingIds] = useState<string[]>([]);
   const progressList = useQuery(api.biblePlan.getPlanAssignments, selectedPlanId ? { planId: selectedPlanId as any } : "skip") || [];
+  
+  const modalAssignments = useQuery(api.biblePlan.getPlanAssignments, showAssignModal ? { planId: showAssignModal._id as any } : "skip") || [];
+  const assignedMemberIds = modalAssignments.map((a: any) => a.memberId);
+
+  const handleRemindMember = async (assignmentId: string) => {
+    setRemindingIds(prev => [...prev, assignmentId]);
+    try {
+      await sendReminder({ assignmentId });
+      toast.success("Reminder sent successfully!");
+    } catch (e: any) {
+      toast.error("Failed to send reminder: " + e.message);
+    } finally {
+      setRemindingIds(prev => prev.filter(id => id !== assignmentId));
+    }
+  };
+
+  const [selectedAssignmentsToRemove, setSelectedAssignmentsToRemove] = useState<string[]>([]);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
+
+  // Clear selections when plan changes
+  useEffect(() => {
+    setSelectedAssignmentsToRemove([]);
+  }, [selectedPlanId]);
+
+  const handleRemoveAssignments = async () => {
+    if (selectedAssignmentsToRemove.length === 0) return;
+    setIsRemoving(true);
+    try {
+      await removeAssignments({ assignmentIds: selectedAssignmentsToRemove as any });
+      toast.success(`Successfully removed ${selectedAssignmentsToRemove.length} assignment(s)`);
+      setSelectedAssignmentsToRemove([]);
+      setShowRemoveConfirm(false);
+    } catch (e: any) {
+      toast.error("Failed to remove assignments: " + e.message);
+    } finally {
+      setIsRemoving(false);
+    }
+  };
+
+  const handleDeletePlan = async () => {
+    if (!planToDelete) return;
+    setIsDeletingPlan(true);
+    try {
+      await deletePlan({ planId: planToDelete as any });
+      toast.success("Plan and all its progress deleted successfully");
+      setPlanToDelete(null);
+      if (selectedPlanId === planToDelete) setSelectedPlanId(null);
+    } catch (e: any) {
+      toast.error("Failed to delete plan: " + e.message);
+    } finally {
+      setIsDeletingPlan(false);
+    }
+  };
 
   // Update readings array when duration changes
   useEffect(() => {
@@ -1503,6 +1680,14 @@ export function ManageBibleReadingPage() {
                           >
                             {selectedPlanId === p._id ? "Viewing Progress" : "View Progress"}
                           </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
+                            onClick={() => setPlanToDelete(p._id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -1517,6 +1702,18 @@ export function ManageBibleReadingPage() {
                 description={`Tracking completion for: ${plans.find(p => p._id === selectedPlanId)?.title}`}
                 icon={<Activity className="h-5 w-5 text-success" />}
                 gradient="gradient-leader"
+                action={
+                  selectedAssignmentsToRemove.length > 0 && (
+                    <Button 
+                      variant="destructive" 
+                      size="sm" 
+                      className="h-8 text-xs shadow-sm"
+                      onClick={() => setShowRemoveConfirm(true)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 mr-1" /> Remove ({selectedAssignmentsToRemove.length})
+                    </Button>
+                  )
+                }
               >
                 <div className="space-y-3">
                   {progressList.length === 0 ? (
@@ -1526,29 +1723,83 @@ export function ManageBibleReadingPage() {
                       <Table>
                         <TableHeader>
                           <TableRow>
+                            <TableHead className="w-[40px] text-center">
+                              <input 
+                                type="checkbox" 
+                                className="w-4 h-4 rounded appearance-none border-2 border-input bg-background cursor-pointer checked:bg-primary checked:border-primary relative checked:after:absolute checked:after:left-[4px] checked:after:top-[1px] checked:after:w-[6px] checked:after:h-[10px] checked:after:border-r-2 checked:after:border-b-2 checked:after:border-white checked:after:rotate-45"
+                                checked={progressList.length > 0 && selectedAssignmentsToRemove.length === progressList.length}
+                                onChange={(e) => {
+                                  if (e.target.checked) setSelectedAssignmentsToRemove(progressList.map(p => p._id));
+                                  else setSelectedAssignmentsToRemove([]);
+                                }}
+                              />
+                            </TableHead>
                             <TableHead>Member</TableHead>
-                            <TableHead>Start Date</TableHead>
                             <TableHead>Progress</TableHead>
-                            <TableHead className="text-right">%</TableHead>
+                            <TableHead className="text-center">Streak</TableHead>
+                            <TableHead className="text-center">Status</TableHead>
+                            <TableHead className="text-right">Action</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {progressList.map((entry) => (
-                            <TableRow key={entry._id}>
+                            <TableRow key={entry._id} className={selectedAssignmentsToRemove.includes(entry._id) ? "bg-primary/5" : ""}>
+                              <TableCell className="text-center">
+                                <input 
+                                  type="checkbox" 
+                                  className="w-4 h-4 rounded appearance-none border-2 border-input bg-background cursor-pointer checked:bg-primary checked:border-primary relative checked:after:absolute checked:after:left-[4px] checked:after:top-[1px] checked:after:w-[6px] checked:after:h-[10px] checked:after:border-r-2 checked:after:border-b-2 checked:after:border-white checked:after:rotate-45"
+                                  checked={selectedAssignmentsToRemove.includes(entry._id)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) setSelectedAssignmentsToRemove(prev => [...prev, entry._id]);
+                                    else setSelectedAssignmentsToRemove(prev => prev.filter(id => id !== entry._id));
+                                  }}
+                                />
+                              </TableCell>
                               <TableCell>
                                 <div className="flex flex-col">
                                   <span className="text-sm font-medium">{entry.memberName}</span>
-                                  <span className="text-[10px] text-muted-foreground">{entry.memberEmail}</span>
+                                  {entry.lastActiveAt ? (
+                                    <span className="text-[10px] text-muted-foreground">Active: {format(new Date(entry.lastActiveAt), "MMM d, h:mm a")}</span>
+                                  ) : (
+                                    <span className="text-[10px] text-muted-foreground">Not started</span>
+                                  )}
                                 </div>
                               </TableCell>
-                              <TableCell className="text-xs">{entry.startDate}</TableCell>
-                              <TableCell className="w-[120px]">
+                              <TableCell className="w-[140px]">
                                 <div className="space-y-1">
+                                  <div className="flex justify-between text-[10px] text-muted-foreground font-medium mb-1">
+                                    <span>{entry.completedCount} / {entry.totalDays}</span>
+                                    <span>{entry.percentComplete}%</span>
+                                  </div>
                                   <Progress value={entry.percentComplete} className="h-1.5" />
-                                  <p className="text-[10px] text-muted-foreground">{entry.completedCount} / {entry.totalDays} days</p>
                                 </div>
                               </TableCell>
-                              <TableCell className="text-right font-medium text-xs">{entry.percentComplete}%</TableCell>
+                              <TableCell className="text-center">
+                                {entry.currentStreak > 0 ? (
+                                  <Badge className="bg-orange-500/10 text-orange-600 border-none font-bold">
+                                    🔥 {entry.currentStreak}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Badge variant={entry.status === "Active" ? "outline" : entry.status === "At Risk" ? "secondary" : "destructive"} 
+                                  className={`text-[10px] ${entry.status === "Active" ? "border-success text-success" : entry.status === "At Risk" ? "bg-warning/20 text-warning border-transparent" : "bg-destructive/10 text-destructive border-transparent"}`}>
+                                  {entry.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={() => handleRemindMember(entry._id)}
+                                  disabled={entry.status === "Active" || remindingIds.includes(entry._id)}
+                                  className={`h-8 text-xs ${entry.status !== "Active" ? "text-primary hover:text-primary hover:bg-primary/10" : "text-muted-foreground"}`}
+                                >
+                                  {remindingIds.includes(entry._id) ? "Sending..." : entry.lastRemindedAt && (Date.now() - entry.lastRemindedAt < 24 * 60 * 60 * 1000) ? "Reminded" : "Remind"}
+                                </Button>
+                              </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -1598,7 +1849,7 @@ export function ManageBibleReadingPage() {
 
       {/* Create Plan Modal */}
       <Dialog open={showCreatePlan} onOpenChange={setShowCreatePlan}>
-        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden glass-strong bg-background/95">
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden bg-background shadow-lg border">
           <DialogHeader className="p-6 pb-2">
             <DialogTitle>Create Reading Plan</DialogTitle>
             <DialogDescription>Design a daily scripture journey for your ministry.</DialogDescription>
@@ -1697,27 +1948,35 @@ export function ManageBibleReadingPage() {
                   {members.length === 0 ? (
                     <p className="p-4 text-sm text-muted-foreground italic">No members available.</p>
                   ) : (
-                    members.map(m => (
-                      <div 
-                        key={m._id} 
-                        className={`p-3 flex items-center justify-between cursor-pointer hover:bg-primary/5 transition-colors ${selectedMembers.includes(m._id) ? 'bg-primary/5' : ''}`}
-                        onClick={() => {
-                          if (selectedMembers.includes(m._id)) {
-                            setSelectedMembers(selectedMembers.filter(id => id !== m._id));
-                          } else {
-                            setSelectedMembers([...selectedMembers, m._id]);
-                          }
-                        }}
-                      >
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium">{m.name}</span>
-                          <span className="text-[10px] text-muted-foreground">{m.email}</span>
+                    members.map(m => {
+                      const isAlreadyAssigned = assignedMemberIds.includes(m._id);
+                      return (
+                        <div 
+                          key={m._id} 
+                          className={`p-3 flex items-center justify-between cursor-pointer hover:bg-primary/5 transition-colors ${selectedMembers.includes(m._id) ? 'bg-primary/5' : ''} ${isAlreadyAssigned ? 'opacity-70 bg-muted/20 hover:bg-muted/30' : ''}`}
+                          onClick={() => {
+                            if (isAlreadyAssigned) return;
+                            if (selectedMembers.includes(m._id)) {
+                              setSelectedMembers(selectedMembers.filter(id => id !== m._id));
+                            } else {
+                              setSelectedMembers([...selectedMembers, m._id]);
+                            }
+                          }}
+                        >
+                          <div className="flex flex-col">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium">{m.name}</span>
+                              {isAlreadyAssigned && <Badge variant="secondary" className="text-[9px] h-4 py-0 font-semibold bg-primary/10 text-primary border-transparent">Assigned</Badge>}
+                            </div>
+                            <span className="text-[10px] text-muted-foreground">{m.email}</span>
+                          </div>
+                          <div className={`h-5 w-5 rounded-md border flex items-center justify-center transition-colors ${selectedMembers.includes(m._id) ? 'bg-primary border-primary shadow-sm' : isAlreadyAssigned ? 'border-muted-foreground/30 bg-muted/10' : 'border-input'}`}>
+                            {selectedMembers.includes(m._id) && <Plus className="h-3 w-3 text-white" />}
+                            {isAlreadyAssigned && <Check className="h-3 w-3 text-muted-foreground" />}
+                          </div>
                         </div>
-                        <div className={`h-5 w-5 rounded-md border flex items-center justify-center transition-colors ${selectedMembers.includes(m._id) ? 'bg-primary border-primary shadow-sm' : 'border-input'}`}>
-                          {selectedMembers.includes(m._id) && <Plus className="h-3 w-3 text-white" />}
-                        </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
                 <div className="flex justify-between items-center px-1 pt-1">
@@ -1753,6 +2012,55 @@ export function ManageBibleReadingPage() {
               className="gradient-header h-10 px-8 shadow-sm font-semibold text-white border-none"
             >
               {isAssigning ? "Assigning..." : "Activate Plan"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* Bulk Remove Confirmation Modal */}
+      <Dialog open={showRemoveConfirm} onOpenChange={setShowRemoveConfirm}>
+        <DialogContent className="max-w-md p-6 overflow-hidden bg-background shadow-lg border">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="w-5 h-5" /> Confirm Removal
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              Are you sure you want to remove the reading plan from <strong>{selectedAssignmentsToRemove.length} member(s)</strong>? 
+              This will permanently delete their progress associated with this plan. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="border-t pt-4 mt-2 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setShowRemoveConfirm(false)} disabled={isRemoving}>Cancel</Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleRemoveAssignments} 
+              disabled={isRemoving}
+            >
+              {isRemoving ? "Removing..." : "Remove Plan & Progress"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Plan Confirmation Modal */}
+      <Dialog open={planToDelete !== null} onOpenChange={(open) => !open && setPlanToDelete(null)}>
+        <DialogContent className="max-w-md p-6 overflow-hidden bg-background shadow-lg border">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="w-5 h-5" /> Delete Reading Plan
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              Are you sure you want to permanently delete this reading plan? 
+              This will also safely erase all member progress securely associated with it. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="border-t pt-4 mt-2 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setPlanToDelete(null)} disabled={isDeletingPlan}>Cancel</Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeletePlan} 
+              disabled={isDeletingPlan}
+            >
+              {isDeletingPlan ? "Deleting..." : "Delete Plan"}
             </Button>
           </div>
         </DialogContent>

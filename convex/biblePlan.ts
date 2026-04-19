@@ -134,6 +134,78 @@ export const assignPlan = mutation({
   },
 });
 
+export const deletePlan = mutation({
+  args: { planId: v.id("bible_reading_plans") },
+  handler: async (ctx, args) => {
+    const user = await checkLeader(ctx);
+    if (!user) throw new Error("Unauthorized");
+
+    const plan = await ctx.db.get(args.planId);
+    if (!plan || plan.organizationId !== user.organizationId) {
+        throw new Error("Unauthorized");
+    }
+
+    // Delete assignments and their progress
+    const assignments = await ctx.db
+      .query("bible_reading_assignments")
+      .withIndex("by_plan", (q) => q.eq("planId", args.planId))
+      .collect();
+
+    for (const a of assignments) {
+      const progress = await ctx.db
+        .query("bible_reading_progress")
+        .withIndex("by_assignment", (q) => q.eq("assignmentId", a._id))
+        .collect();
+      
+      for (const p of progress) {
+        await ctx.db.delete(p._id);
+      }
+      await ctx.db.delete(a._id);
+    }
+
+    // Delete plan days
+    const days = await ctx.db
+        .query("bible_reading_plan_days")
+        .withIndex("by_plan", (q) => q.eq("planId", args.planId))
+        .collect();
+    
+    for (const d of days) {
+        await ctx.db.delete(d._id);
+    }
+
+    // Delete plan
+    await ctx.db.delete(args.planId);
+  }
+});
+
+export const removeAssignments = mutation({
+  args: {
+    assignmentIds: v.array(v.id("bible_reading_assignments")),
+  },
+  handler: async (ctx, args) => {
+    const user = await checkLeader(ctx);
+    if (!user) throw new Error("Unauthorized");
+
+    for (const assignmentId of args.assignmentIds) {
+      const assignment = await ctx.db.get(assignmentId);
+      if (assignment && assignment.organizationId === user.organizationId) {
+        // Delete all progress for this assignment
+        const progress = await ctx.db
+          .query("bible_reading_progress")
+          .withIndex("by_assignment", (q) => q.eq("assignmentId", assignmentId))
+          .collect();
+        
+        for (const p of progress) {
+          await ctx.db.delete(p._id);
+        }
+
+        // Delete the actual assignment
+        await ctx.db.delete(assignmentId);
+      }
+    }
+  },
+});
+
 // --- Leader Queries ---
 
 export const listPlans = query({
@@ -172,15 +244,59 @@ export const getPlanAssignments = query({
       const totalDays = plan?.duration || 1;
       const completedDays = progress.length;
 
+      // Streak & Status Calculation
+      const completedDates = progress
+        .map(p => {
+            const d = new Date(p.completedAt);
+            d.setHours(0,0,0,0);
+            return d.getTime();
+        })
+        .sort((a, b) => b - a);
+      
+      const uniqueDates = Array.from(new Set(completedDates));
+      let currentStreak = 0;
+      const now = new Date();
+      now.setHours(0,0,0,0);
+      const today = now.getTime();
+      const yesterday = today - 24 * 60 * 60 * 1000;
+
+      if (uniqueDates.length > 0) {
+        if (uniqueDates[0] === today || uniqueDates[0] === yesterday) {
+            currentStreak = 1;
+            let expectedNext = uniqueDates[0] - 24 * 60 * 60 * 1000;
+            for (let i = 1; i < uniqueDates.length; i++) {
+                if (uniqueDates[i] === expectedNext) {
+                    currentStreak++;
+                    expectedNext -= 24 * 60 * 60 * 1000;
+                } else {
+                    break;
+                }
+            }
+        }
+      }
+
+      const lastActiveAt = progress.length > 0 ? Math.max(...progress.map(p => p.completedAt)) : null;
+      let status = "Inactive";
+      if (lastActiveAt) {
+          const hoursSinceLastActive = (Date.now() - lastActiveAt) / (1000 * 60 * 60);
+          if (hoursSinceLastActive < 24) status = "Active";
+          else if (hoursSinceLastActive < 72) status = "At Risk";
+      }
+
       return {
         _id: a._id,
         memberId: a.memberId,
         memberName: member?.name || "Unknown Member",
         memberEmail: member?.email || "",
+        avatar: member?.avatar,
         startDate: a.startDate,
         completedCount: completedDays,
         totalDays: totalDays,
         percentComplete: Math.round((completedDays / totalDays) * 100),
+        lastActiveAt,
+        status,
+        currentStreak,
+        lastRemindedAt: a.lastRemindedAt,
       };
     }));
   },
@@ -255,6 +371,7 @@ export const markDayComplete = mutation({
   args: {
     assignmentId: v.id("bible_reading_assignments"),
     dayNumber: v.number(),
+    reflection: v.optional(v.string()),
     tracing: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
@@ -277,46 +394,103 @@ export const markDayComplete = mutation({
         assignmentId: args.assignmentId,
         dayNumber: args.dayNumber,
         completedAt: Date.now(),
+        reflection: args.reflection,
       });
+    } else if (args.reflection && !existing.reflection) {
+      await ctx.db.patch(existing._id, { reflection: args.reflection });
     }
   },
 });
 
+export const sendReminder = mutation({
+  args: {
+    assignmentId: v.id("bible_reading_assignments"),
+  },
+  handler: async (ctx, args) => {
+    const user = await checkLeader(ctx);
+    if (!user) throw new Error("Unauthorized");
+
+    const assignment = await ctx.db.get(args.assignmentId);
+    if (!assignment) throw new Error("Assignment not found");
+
+    // Update the timestamp to mark that a reminder was sent.
+    // Future proofing: Add resend or email triggers here when requested.
+    await ctx.db.patch(args.assignmentId, {
+        lastRemindedAt: Date.now()
+    });
+  }
+});
+
 // --- Member Queries ---
 
-export const getMyActivePlan = query({
+export const getMyActivePlans = query({
   args: {},
   handler: async (ctx) => {
     const user = await getActiveUser(ctx);
-    if (!user) return null;
+    if (!user) return [];
 
-    const assignment = await ctx.db
+    const assignments = await ctx.db
       .query("bible_reading_assignments")
       .withIndex("by_org_and_member", (q) => 
         q.eq("organizationId", user.organizationId).eq("memberId", user._id)
       )
       .filter((q) => q.eq(q.field("status"), "active"))
       .order("desc")
-      .first();
-
-    if (!assignment) return null;
-
-    const plan = await ctx.db.get(assignment.planId);
-    const progress = await ctx.db
-      .query("bible_reading_progress")
-      .withIndex("by_assignment", (q) => q.eq("assignmentId", assignment._id))
       .collect();
 
-    const readings = await ctx.db
-      .query("bible_reading_plan_days")
-      .withIndex("by_plan", (q) => q.eq("planId", assignment.planId))
-      .collect();
+    if (assignments.length === 0) return [];
 
-    return {
-      assignment,
-      plan,
-      progress: progress.map(p => p.dayNumber),
-      readings,
-    };
+    return await Promise.all(assignments.map(async (assignment) => {
+      const plan = await ctx.db.get(assignment.planId);
+      const progress = await ctx.db
+        .query("bible_reading_progress")
+        .withIndex("by_assignment", (q) => q.eq("assignmentId", assignment._id))
+        .collect();
+
+      const readings = await ctx.db
+        .query("bible_reading_plan_days")
+        .withIndex("by_plan", (q) => q.eq("planId", assignment.planId))
+        .collect();
+
+      // Streak Calculation
+      const completedDates = progress
+        .map(p => {
+            const d = new Date(p.completedAt);
+            d.setHours(0,0,0,0);
+            return d.getTime();
+        })
+        .sort((a, b) => b - a);
+      
+      const uniqueDates = Array.from(new Set(completedDates));
+      let currentStreak = 0;
+      const now = new Date();
+      now.setHours(0,0,0,0);
+      const today = now.getTime();
+      const yesterday = today - 24 * 60 * 60 * 1000;
+
+      if (uniqueDates.length > 0) {
+        if (uniqueDates[0] === today || uniqueDates[0] === yesterday) {
+            currentStreak = 1;
+            let expectedNext = uniqueDates[0] - 24 * 60 * 60 * 1000;
+            for (let i = 1; i < uniqueDates.length; i++) {
+                if (uniqueDates[i] === expectedNext) {
+                    currentStreak++;
+                    expectedNext -= 24 * 60 * 60 * 1000;
+                } else {
+                    break;
+                }
+            }
+        }
+      }
+
+      return {
+        assignment,
+        plan,
+        progress: progress.map(p => p.dayNumber),
+        progressData: progress,
+        readings,
+        currentStreak,
+      };
+    }));
   },
 });
