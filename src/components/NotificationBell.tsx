@@ -29,6 +29,10 @@ export function NotificationBell() {
     const events = useQuery(api.events.list) || [];
     const announcements = useQuery(api.bulletins.listAnnouncements) || [];
     const bulletins = useQuery(api.bulletins.listBulletins) || [];
+    const assignments = useQuery(
+        api.assignments.listByMember,
+        user?._id ? { memberId: user._id as any } : "skip"
+    ) || [];
 
     // Combine and sort notifications
     const notifications = [
@@ -38,7 +42,7 @@ export function NotificationBell() {
                 id: e._id,
                 type: "Event",
                 title: e.title,
-                date: e._creationTime, // Using creation time for "new" status
+                date: e._creationTime,
                 link: "/events"
             })),
         ...announcements
@@ -58,9 +62,18 @@ export function NotificationBell() {
                 title: b.title,
                 date: b._creationTime,
                 link: "/bulletins"
+            })),
+        ...assignments
+            .map((a: any) => ({
+                id: a._id,
+                type: "Assignment",
+                title: `${a.title} · ${a.ministryName}`,
+                date: a.createdAt ?? a._creationTime,
+                link: "/assignments",
+                status: a.status,
             }))
     ].sort((a, b) => b.date - a.date)
-        .slice(0, 10); // Check last 10 items for notifications
+        .slice(0, 15);
 
     const hasUnread = notifications.some(n => n.date > lastReadTime);
 
@@ -119,10 +132,12 @@ export function NotificationBell() {
                                 onClick={() => handleItemClick(n.link, n.title, n.type)}
                             >
                                 <div className="flex items-center justify-between w-full">
-                                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${n.type === "Event" ? "bg-primary/10 text-primary" :
+                                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                                        n.type === "Event" ? "bg-primary/10 text-primary" :
                                         n.type === "Announcement" ? "bg-accent/10 text-accent-foreground" :
-                                            "bg-muted text-muted-foreground"
-                                        }`}>
+                                        n.type === "Assignment" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" :
+                                        "bg-muted text-muted-foreground"
+                                    }`}>
                                         {n.type}
                                     </span>
                                     {n.date > lastReadTime && (
