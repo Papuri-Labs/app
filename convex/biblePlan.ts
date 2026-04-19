@@ -67,15 +67,43 @@ export const createPlan = mutation({
 export const assignPlan = mutation({
   args: {
     planId: v.id("bible_reading_plans"),
-    memberIds: v.array(v.id("users")),
+    memberIds: v.optional(v.array(v.id("users"))),
+    ministryId: v.optional(v.id("ministries")),
+    group: v.optional(v.string()),
     startDate: v.string(), 
+    message: v.optional(v.string()),
     tracing: v.any(),
   },
   handler: async (ctx, args) => {
     const user = await checkLeader(ctx);
     if (!user) throw new Error("Unauthorized");
 
-    for (const memberId of args.memberIds) {
+    let targets: Id<"users">[] = [];
+
+    if (args.memberIds) {
+      targets = args.memberIds;
+    } else if (args.ministryId) {
+      const allUsers = await ctx.db
+        .query("users")
+        .withIndex("by_organization", (q) => q.eq("organizationId", user.organizationId))
+        .collect();
+      // Filter for those in the ministry AND are members
+      targets = allUsers
+        .filter(u => u.role === "member" && u.ministryIds.includes(args.ministryId!))
+        .map(u => u._id);
+    } else if (args.group) {
+      const allUsers = await ctx.db
+        .query("users")
+        .withIndex("by_organization", (q) => q.eq("organizationId", user.organizationId))
+        .collect();
+      targets = allUsers
+        .filter(u => u.role === "member" && u.group === args.group)
+        .map(u => u._id);
+    }
+
+    if (targets.length === 0) return;
+
+    for (const memberId of targets) {
       const existing = await ctx.db
         .query("bible_reading_assignments")
         .withIndex("by_org_and_member", (q) => 
@@ -87,6 +115,7 @@ export const assignPlan = mutation({
       if (existing) {
         await ctx.db.patch(existing._id, {
           startDate: args.startDate,
+          message: args.message,
           status: "active",
         });
       } else {
@@ -95,6 +124,7 @@ export const assignPlan = mutation({
           planId: args.planId,
           memberId,
           startDate: args.startDate,
+          message: args.message,
           status: "active",
           assignedBy: user._id,
           createdAt: Date.now(),
@@ -153,6 +183,69 @@ export const getPlanAssignments = query({
         percentComplete: Math.round((completedDays / totalDays) * 100),
       };
     }));
+  },
+});
+
+export const listCellGroups = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await checkLeader(ctx);
+    if (!user) return [];
+
+    const users = await ctx.db
+      .query("users")
+      .withIndex("by_organization", (q) => q.eq("organizationId", user.organizationId))
+      .collect();
+
+    // Extract unique non-empty group names
+    const groups = Array.from(new Set(users.map(u => u.group).filter(Boolean))) as string[];
+    
+    return groups.map(name => ({
+      name,
+      memberCount: users.filter(u => u.group === name).length
+    }));
+  },
+});
+
+export const getOrganizationStats = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await checkLeader(ctx);
+    if (!user) return null;
+
+    const assignments = await ctx.db
+      .query("bible_reading_assignments")
+      .withIndex("by_organization", (q) => q.eq("organizationId", user.organizationId))
+      .filter(q => q.eq(q.field("status"), "active"))
+      .collect();
+
+    if (assignments.length === 0) return { completionRate: 0, totalAssigned: 0, completedToday: 0 };
+
+    let completedToday = 0;
+    const now = new Date();
+    now.setHours(0,0,0,0);
+
+    for (const a of assignments) {
+      const start = new Date(a.startDate);
+      start.setHours(0,0,0,0);
+      const diffDays = Math.ceil(Math.abs(now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+      const todayDayNumber = diffDays + 1;
+
+      const done = await ctx.db
+        .query("bible_reading_progress")
+        .withIndex("by_assignment_and_day", (q) => 
+          q.eq("assignmentId", a._id).eq("dayNumber", todayDayNumber)
+        )
+        .first();
+
+      if (done) completedToday++;
+    }
+
+    return {
+      totalAssigned: assignments.length,
+      completedToday,
+      completionRate: Math.round((completedToday / assignments.length) * 100)
+    };
   },
 });
 

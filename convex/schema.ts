@@ -424,6 +424,7 @@ export default defineSchema({
     planId: v.id("bible_reading_plans"),
     memberId: v.id("users"),
     startDate: v.string(), // YYYY-MM-DD
+    message: v.optional(v.string()), // Custom leader message
     status: v.union(v.literal("active"), v.literal("completed")),
     assignedBy: v.id("users"),
     createdAt: v.number(),
