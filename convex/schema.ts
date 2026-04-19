@@ -424,7 +424,8 @@ export default defineSchema({
     planId: v.id("bible_reading_plans"),
     memberId: v.id("users"),
     startDate: v.string(), // YYYY-MM-DD
-    message: v.optional(v.string()), // Custom leader message
+    groupName: v.optional(v.string()), // Group context for this assignment
+    message: v.optional(v.string()), // Assignment-level note
     status: v.union(v.literal("active"), v.literal("completed")),
     assignedBy: v.id("users"),
     lastRemindedAt: v.optional(v.number()), // Follow up timestamp
@@ -443,6 +444,16 @@ export default defineSchema({
   }).index("by_organization", ["organizationId"])
     .index("by_assignment", ["assignmentId"])
     .index("by_assignment_and_day", ["assignmentId", "dayNumber"]),
+
+  bible_reading_group_messages: defineTable({
+    organizationId: v.id("organizations"),
+    planId: v.id("bible_reading_plans"),
+    groupName: v.string(),
+    dayNumber: v.number(),
+    message: v.string(),
+    postedBy: v.id("users"),
+    createdAt: v.number(),
+  }).index("by_group_plan_day", ["organizationId", "groupName", "planId", "dayNumber"]),
 });
 
 
