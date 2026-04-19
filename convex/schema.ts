@@ -427,6 +427,7 @@ export default defineSchema({
     message: v.optional(v.string()), // Custom leader message
     status: v.union(v.literal("active"), v.literal("completed")),
     assignedBy: v.id("users"),
+    lastRemindedAt: v.optional(v.number()), // Follow up timestamp
     createdAt: v.number(),
   }).index("by_organization", ["organizationId"])
     .index("by_member", ["memberId"])
@@ -438,6 +439,7 @@ export default defineSchema({
     assignmentId: v.id("bible_reading_assignments"),
     dayNumber: v.number(),
     completedAt: v.number(),
+    reflection: v.optional(v.string()), // Member's daily reflection
   }).index("by_organization", ["organizationId"])
     .index("by_assignment", ["assignmentId"])
     .index("by_assignment_and_day", ["assignmentId", "dayNumber"]),

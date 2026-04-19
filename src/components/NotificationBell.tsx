@@ -37,7 +37,7 @@ export function NotificationBell() {
         api.attendance.getMyFollowUpAssignments,
         user?.role === "leader" || user?.role === "admin" ? {} : "skip"
     ) || [];
-    const bibleReading = useQuery(api.biblePlan.getMyActivePlan) || null;
+    const bibleReadingPlans = useQuery(api.biblePlan.getMyActivePlans) || [];
 
     // Combine and sort notifications
     const notifications = [
@@ -86,13 +86,13 @@ export function NotificationBell() {
                 date: a.createdAt ?? a._creationTime,
                 link: "/follow-ups",
             })),
-        ...(bibleReading ? [{
-            id: `br-${bibleReading.assignment._id}`,
+        ...bibleReadingPlans.map((br: any) => ({
+            id: `br-${br.assignment._id}`,
             type: "Bible Reading",
-            title: `New plan: ${bibleReading.plan?.title}`,
-            date: bibleReading.assignment.createdAt ?? bibleReading.assignment._creationTime,
+            title: `New plan: ${br.plan?.title}`,
+            date: br.assignment.createdAt ?? br.assignment._creationTime,
             link: "/bible-reading",
-        }] : []),
+        })),
     ].sort((a, b) => b.date - a.date)
         .slice(0, 15);
 

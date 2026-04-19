@@ -33,7 +33,9 @@ export default function MemberDashboard() {
   const logUIEvent = useMutation(api.logs.logUIEvent);
 
   // Fetch Bible Reading data
-  const activePlanData = useQuery(api.biblePlan.getMyActivePlan);
+  const activePlansData = useQuery(api.biblePlan.getMyActivePlans);
+  const activePlanData = activePlansData && activePlansData.length > 0 ? activePlansData[0] : null;
+
   const markAsRead = useMutation(api.biblePlan.markDayComplete);
   const [isMarking, setIsMarking] = useState(false);
 
