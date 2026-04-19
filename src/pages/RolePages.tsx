@@ -2157,7 +2157,7 @@ export function AttendancePage() {
         {/* Date and Event Selection */}
         <Card className="glass-strong border-0 rounded-2xl">
           <CardContent className="pt-4 pb-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
               <div className="space-y-2">
                 <Label htmlFor="date">Date</Label>
                 <Input
@@ -2178,7 +2178,7 @@ export function AttendancePage() {
                   id="event"
                   value={selectedEvent}
                   onChange={(e) => setSelectedEvent(e.target.value)}
-                  className={`w-full px-3 py-2 rounded-md border text-sm ${!selectedEvent ? 'border-destructive ring-1 ring-destructive/20' : 'bg-background'}`}
+                  className={`w-full h-9 px-3 rounded-md border text-sm bg-background ${!selectedEvent ? 'border-destructive ring-1 ring-destructive/20' : 'border-input'}`}
                   required
                 >
                   <option value="">-- SELECT REQUIRED --</option>
