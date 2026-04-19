@@ -268,17 +268,42 @@ export default function MemberDashboard() {
           </DashboardCard>
 
           <DashboardCard title="Giving" description="Support the ministry" icon={<Heart className="h-5 w-5 text-accent" />} gradient="gradient-member">
-            <p className="text-sm text-muted-foreground mb-4">
-              Your generous giving helps further our mission and serve our community.
+            <p className="text-[13px] text-muted-foreground mb-4 leading-relaxed">
+              Your generous giving helps further our mission. Select an option below to contribute.
             </p>
-            <Button size="sm" onClick={() => {
-              logUIEvent({
-                action: "GIVING_CLICK",
-                details: "User clicked Give Now button on dashboard",
-                tracing: getTracing(),
-              });
-              setSelectedGiving(givingOptions[0] || { label: "General Giving", description: "Default giving option" });
-            }}>Give Now</Button>
+            <div className="flex flex-col gap-2">
+              {givingOptions.length === 0 ? (
+                <Button size="sm" className="w-full" onClick={() => setSelectedGiving({ label: "General Giving", description: "Default giving option" })}>
+                  Give Now
+                </Button>
+              ) : (
+                givingOptions.map((option: any) => (
+                  <Button 
+                    key={option._id} 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full justify-start text-left shrink-0 h-auto py-2 px-3 border-primary/20 hover:border-primary/50 hover:bg-primary/5"
+                    onClick={() => {
+                      logUIEvent({
+                        action: "GIVING_CLICK",
+                        details: `User clicked giving: ${option.label}`,
+                        tracing: getTracing(),
+                      });
+                      setSelectedGiving(option);
+                    }}
+                  >
+                    <div className="flex flex-col items-start gap-0.5">
+                      <span className="font-semibold text-sm">{option.label}</span>
+                      {option.description && (
+                        <span className="text-[11px] text-muted-foreground font-normal line-clamp-1">
+                          {option.description}
+                        </span>
+                      )}
+                    </div>
+                  </Button>
+                ))
+              )}
+            </div>
           </DashboardCard>
 
           <DashboardCard title="Recent Memories" description="Latest photos from church events" icon={<ImageIcon className="h-5 w-5 text-primary" />} gradient="gradient-member">
