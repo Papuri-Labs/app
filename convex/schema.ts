@@ -378,6 +378,27 @@ export default defineSchema({
     .index("by_organization", ["organizationId"])
     .index("by_org_and_period", ["organizationId", "period"])
     .index("by_org_fund_account", ["organizationId", "fundId", "accountId"]),
+
+  // Follow-up assignments: tracks which leader is assigned to follow up a member
+  follow_up_assignments: defineTable({
+    organizationId: v.id("organizations"),
+    memberId: v.id("users"),       // The member needing follow-up
+    leaderId: v.id("users"),       // The leader assigned
+    assignedBy: v.id("users"),     // Who made the assignment
+    notes: v.optional(v.string()), // Optional pastoral notes from admin
+    leaderNotes: v.optional(v.string()), // Notes added by the assigned leader after follow-up
+    status: v.union(
+      v.literal("pending"),
+      v.literal("in_progress"),
+      v.literal("completed"),
+    ),
+    createdAt: v.number(),
+    notifiedAt: v.optional(v.number()), // Reserved for future email notification
+  })
+    .index("by_organization", ["organizationId"])
+    .index("by_member", ["memberId"])
+    .index("by_leader", ["leaderId"])
+    .index("by_org_and_member", ["organizationId", "memberId"]),
 });
 
 

@@ -33,6 +33,10 @@ export function NotificationBell() {
         api.assignments.listByMember,
         user?._id ? { memberId: user._id as any } : "skip"
     ) || [];
+    const followUpAssignments = useQuery(
+        api.attendance.getMyFollowUpAssignments,
+        user?.role === "leader" || user?.role === "admin" ? {} : "skip"
+    ) || [];
 
     // Combine and sort notifications
     const notifications = [
@@ -71,9 +75,19 @@ export function NotificationBell() {
                 date: a.createdAt ?? a._creationTime,
                 link: "/assignments",
                 status: a.status,
-            }))
+            })),
+        ...followUpAssignments
+            .filter((a: any) => a.status !== "completed")
+            .map((a: any) => ({
+                id: `fu-${a._id}`,
+                type: "Follow-Up",
+                title: `Follow up with ${a.memberName}`,
+                date: a.createdAt ?? a._creationTime,
+                link: "/follow-ups",
+            })),
     ].sort((a, b) => b.date - a.date)
         .slice(0, 15);
+
 
     const hasUnread = notifications.some(n => n.date > lastReadTime);
 
@@ -136,6 +150,7 @@ export function NotificationBell() {
                                         n.type === "Event" ? "bg-primary/10 text-primary" :
                                         n.type === "Announcement" ? "bg-accent/10 text-accent-foreground" :
                                         n.type === "Assignment" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" :
+                                        n.type === "Follow-Up" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" :
                                         "bg-muted text-muted-foreground"
                                     }`}>
                                         {n.type}

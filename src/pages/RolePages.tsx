@@ -19,6 +19,7 @@ import { EventDialog } from "@/components/EventDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { useMemo, useState, useEffect } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate, Link, Navigate, useParams } from "react-router-dom";
 import {
   Calendar,
@@ -1381,7 +1382,7 @@ export function MembersPage() {
             title="Active Members"
             icon={<Users className="h-5 w-5 text-primary" />}
             gradient="gradient-leader"
-            className="lg:col-span-2"
+            className="lg:col-span-3"
           >
             <div className="space-y-3">
               {members.length === 0 ? (
@@ -1410,14 +1411,6 @@ export function MembersPage() {
                   </div>
                 ))
               )}
-            </div>
-          </DashboardCard>
-
-          <DashboardCard title="Care Actions" icon={<Heart className="h-5 w-5 text-accent" />} gradient="gradient-leader">
-            <div className="space-y-2">
-              <Button size="sm" className="w-full" onClick={() => navigate(`/${orgSlug}/follow-ups`)}>Add Follow-up</Button>
-              <Button size="sm" variant="outline" className="w-full" onClick={() => alert('Assign Shepherd feature coming soon!')}>Assign Shepherd</Button>
-              <Button size="sm" variant="outline" className="w-full" onClick={() => alert('Send Message feature coming soon!')}>Send Message</Button>
             </div>
           </DashboardCard>
         </div>
@@ -1462,10 +1455,64 @@ export function FollowUpsPage() {
   const { user, settings } = useAuth();
   const followUps = useQuery(api.attendance.getFollowUps) || [];
   const filteredFollowUps = followUps.filter(m => m.absences >= (settings?.followUpAbsences || 3));
-  const [showFollowUpModal, setShowFollowUpModal] = useState(false);
+  const existingAssignments = useQuery(api.attendance.listFollowUpAssignments) || [];
+  const myAssignments = useQuery(api.attendance.getMyFollowUpAssignments) || [];
+  const leaders = useQuery(api.attendance.getLeadersByMinistry, {}) || [];
+  const assignFollowUp = useMutation(api.attendance.assignFollowUp);
+  const updateFollowUpStatus = useMutation(api.attendance.updateFollowUpStatus);
 
-  const handleAssignFollowUp = () => {
-    setShowFollowUpModal(true);
+  const [assigningMember, setAssigningMember] = useState<any>(null);
+  const [selectedLeader, setSelectedLeader] = useState("");
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [editingNotes, setEditingNotes] = useState<Record<string, string>>({});
+  const [savingNotes, setSavingNotes] = useState<string | null>(null);
+  const updateFollowUpNotes = useMutation(api.attendance.updateFollowUpNotes);
+
+
+  // Build a map of memberId -> existing assignment for quick lookup
+  const assignmentMap = useMemo(() => {
+    const map: Record<string, any> = {};
+    existingAssignments.forEach((a: any) => { map[a.memberId] = a; });
+    return map;
+  }, [existingAssignments]);
+
+  const handleOpenAssign = (member: any) => {
+    const existing = assignmentMap[member._id];
+    setAssigningMember(member);
+    setSelectedLeader(existing?.leaderId || "");
+    setNotes(existing?.notes || "");
+  };
+
+  const handleSaveAssignment = async () => {
+    if (!selectedLeader || !assigningMember) return;
+    setSaving(true);
+    try {
+      await assignFollowUp({
+        memberId: assigningMember._id as any,
+        leaderId: selectedLeader as any,
+        notes: notes || undefined,
+      });
+      setAssigningMember(null);
+      setSelectedLeader("");
+      setNotes("");
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleUpdateStatus = async (id: string, status: "pending" | "in_progress" | "completed") => {
+    setUpdatingId(id);
+    try {
+      await updateFollowUpStatus({ id: id as any, status });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setUpdatingId(null);
+    }
   };
 
   const handleExportList = () => {
@@ -1489,6 +1536,7 @@ export function FollowUpsPage() {
           gradient="gradient-leader"
         />
 
+        {/* Follow-Up Queue */}
         <Card className="glass-strong border-0 rounded-2xl">
           <CardHeader>
             <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -1504,45 +1552,286 @@ export function FollowUpsPage() {
                     <TableHead className="hidden sm:table-cell">Email</TableHead>
                     <TableHead>Absences</TableHead>
                     <TableHead className="hidden sm:table-cell">Status</TableHead>
+                    <TableHead>Assigned To</TableHead>
+                    <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredFollowUps.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-sm text-muted-foreground text-center">No follow ups needed.</TableCell>
+                      <TableCell colSpan={6} className="text-sm text-muted-foreground text-center">No follow ups needed.</TableCell>
                     </TableRow>
                   ) : (
-                    filteredFollowUps.map((m) => (
-                      <TableRow key={m._id}>
-                        <TableCell className="font-medium">{m.name}</TableCell>
-                        <TableCell className="hidden sm:table-cell text-xs sm:text-sm">{m.email}</TableCell>
-                        <TableCell>{m.absences}</TableCell>
-                        <TableCell className="hidden sm:table-cell">{m.status || "Active"}</TableCell>
-                      </TableRow>
-                    ))
+                    filteredFollowUps.map((m) => {
+                      const assignment = assignmentMap[m._id];
+                      return (
+                        <TableRow key={m._id}>
+                          <TableCell className="font-medium">{m.name}</TableCell>
+                          <TableCell className="hidden sm:table-cell text-xs sm:text-sm">{m.email}</TableCell>
+                          <TableCell>
+                            <span className="text-xs px-2 py-1 rounded-full bg-destructive/10 text-destructive font-semibold">
+                              {m.absences}
+                            </span>
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell">{m.status || "Active"}</TableCell>
+                          <TableCell>
+                            {assignment ? (
+                              <span className="text-xs font-medium text-primary">{assignment.leaderName}</span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              size="sm"
+                              variant={assignment ? "outline" : "default"}
+                              className="text-xs h-7 px-2"
+                              onClick={() => handleOpenAssign(m)}
+                            >
+                              {assignment ? "Reassign" : "Assign"}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>
             </div>
             <div className="flex flex-col sm:flex-row gap-2 mt-4">
-              <Button size="sm" onClick={handleAssignFollowUp} className="w-full sm:w-auto">Assign Follow Up</Button>
               <Button size="sm" variant="outline" onClick={handleExportList} className="w-full sm:w-auto">Export List</Button>
             </div>
           </CardContent>
         </Card>
 
-        {/* Follow Up Assignment Modal */}
-        {showFollowUpModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowFollowUpModal(false)}>
-            <div className="bg-background p-6 rounded-xl max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
-              <h3 className="text-lg font-semibold mb-4">Assign Follow Up</h3>
-              <p className="text-sm text-muted-foreground mb-4">Assign a leader to follow up with members who need pastoral care.</p>
-              <div className="flex gap-2 justify-end">
-                <Button variant="outline" onClick={() => setShowFollowUpModal(false)}>Cancel</Button>
-                <Button onClick={() => {
-                  alert('Follow-up assignment feature coming soon!');
-                  setShowFollowUpModal(false);
-                }}>Assign</Button>
+        {/* My Follow-Ups — visible to the assigned leader */}
+        {myAssignments.length > 0 && (
+          <Card className="glass-strong border-0 rounded-2xl border-l-4 border-l-primary">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <ClipboardList className="h-4 w-4 text-primary" /> My Follow-Up Tasks
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">Members you have been assigned to follow up with.</p>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="pending" className="w-full">
+                <TabsList className="grid w-full grid-cols-3 mb-4 bg-muted/50 p-1">
+                  <TabsTrigger value="pending" className="text-xs">Pending ({myAssignments.filter((a: any) => a.status === 'pending').length})</TabsTrigger>
+                  <TabsTrigger value="in_progress" className="text-xs">In Progress ({myAssignments.filter((a: any) => a.status === 'in_progress').length})</TabsTrigger>
+                  <TabsTrigger value="completed" className="text-xs">Completed ({myAssignments.filter((a: any) => a.status === 'completed').length})</TabsTrigger>
+                </TabsList>
+
+                {["pending", "in_progress", "completed"].map((status) => (
+                  <TabsContent key={status} value={status} className="space-y-3 mt-0 data-[state=inactive]:hidden animate-in fade-in-50 duration-300">
+                    {myAssignments.filter((a: any) => a.status === status).length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-12 px-4 border-2 border-dashed rounded-xl bg-muted/5">
+                        <p className="text-sm text-muted-foreground">No tasks currently {status.replace('_', ' ')}.</p>
+                      </div>
+                    ) : (
+                      myAssignments
+                        .filter((a: any) => a.status === status)
+                        .map((a: any) => {
+                          const notesDraft = editingNotes[a._id] !== undefined ? editingNotes[a._id] : (a.leaderNotes || "");
+                          return (
+                            <div key={a._id} className="flex flex-col gap-3 p-4 rounded-xl glass-subtle border border-primary/10 hover:border-primary/20 transition-all duration-200">
+                              {/* Top: member info + status buttons */}
+                              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                                <div className="flex flex-col gap-0.5">
+                                  <p className="text-sm font-semibold">{a.memberName}</p>
+                                  {a.memberEmail && <p className="text-xs text-muted-foreground">{a.memberEmail}</p>}
+                                  {a.notes && <p className="text-xs text-muted-foreground italic mt-1 bg-primary/5 p-2 rounded-md border-l-2 border-primary/20">📋 Admin notes: {a.notes}</p>}
+                                  <p className="text-[11px] text-muted-foreground mt-1">Assigned by: {a.assignedByName}</p>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  {a.status !== "in_progress" && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 text-xs px-2"
+                                      disabled={updatingId === a._id}
+                                      onClick={() => handleUpdateStatus(a._id, "in_progress")}
+                                    >
+                                      {updatingId === a._id ? "…" : "In Progress"}
+                                    </Button>
+                                  )}
+                                  {a.status !== "completed" && (
+                                    <Button
+                                      size="sm"
+                                      className="h-7 text-xs px-2 bg-success hover:bg-success/90 text-white"
+                                      disabled={updatingId === a._id}
+                                      onClick={() => handleUpdateStatus(a._id, "completed")}
+                                    >
+                                      {updatingId === a._id ? "…" : "Mark Done"}
+                                    </Button>
+                                  )}
+                                  {a.status === "completed" && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-7 text-xs px-2 text-muted-foreground"
+                                      disabled={updatingId === a._id}
+                                      onClick={() => handleUpdateStatus(a._id, "pending")}
+                                    >
+                                      Reopen Task
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                              {/* Leader notes field */}
+                              <div className="space-y-1.5 pt-2 border-t border-primary/5">
+                                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Follow-Up Progress Notes</p>
+                                <textarea
+                                  value={notesDraft}
+                                  onChange={(e) => setEditingNotes(prev => ({ ...prev, [a._id]: e.target.value }))}
+                                  placeholder="Document the follow-up details here..."
+                                  rows={2}
+                                  className="w-full px-3 py-2 rounded-lg border border-input bg-background/50 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring transition-all"
+                                />
+                                {editingNotes[a._id] !== undefined && editingNotes[a._id] !== (a.leaderNotes || "") && (
+                                  <div className="flex justify-end gap-2 mt-1">
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-7 text-xs"
+                                      onClick={() => setEditingNotes(prev => { const n = {...prev}; delete n[a._id]; return n; })}
+                                    >
+                                      Discard
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      className="h-7 text-xs shadow-sm shadow-primary/20"
+                                      disabled={savingNotes === a._id}
+                                      onClick={async () => {
+                                        setSavingNotes(a._id);
+                                        try {
+                                          await updateFollowUpNotes({ id: a._id as any, leaderNotes: notesDraft });
+                                          setEditingNotes(prev => { const n = {...prev}; delete n[a._id]; return n; });
+                                        } catch (e) { console.error(e); }
+                                        finally { setSavingNotes(null); }
+                                      }}
+                                    >
+                                      {savingNotes === a._id ? "Saving…" : "Save Progress"}
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })
+                    )}
+                  </TabsContent>
+                ))}
+              </Tabs>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Recent Assignments */}
+
+        {existingAssignments.length > 0 && (
+          <Card className="glass-strong border-0 rounded-2xl">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <ClipboardList className="h-4 w-4 text-success" /> Active Assignments
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="max-h-[300px] overflow-y-auto rounded-md border">
+                <Table>
+                  <TableHeader className="sticky top-0 bg-background z-10">
+                    <TableRow>
+                      <TableHead>Member</TableHead>
+                      <TableHead>Assigned Leader</TableHead>
+                      <TableHead className="hidden sm:table-cell">Admin Notes</TableHead>
+                      <TableHead className="hidden md:table-cell">Leader Notes</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {existingAssignments.map((a: any) => (
+                      <TableRow key={a._id}>
+                        <TableCell className="font-medium">{a.memberName}</TableCell>
+                        <TableCell>{a.leaderName}</TableCell>
+                        <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">{a.notes || "—"}</TableCell>
+                        <TableCell className="hidden md:table-cell text-xs">
+                          {a.leaderNotes ? (
+                            <span className="text-foreground">{a.leaderNotes}</span>
+                          ) : (
+                            <span className="text-muted-foreground italic">No update yet</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                            a.status === "completed" ? "bg-success/10 text-success" :
+                            a.status === "in_progress" ? "bg-primary/10 text-primary" :
+                            "bg-muted text-muted-foreground"
+                          }`}>
+                            {a.status.replace("_", " ")}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Assign Modal */}
+        {assigningMember && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setAssigningMember(null)}>
+            <div className="bg-background p-6 rounded-2xl max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-lg font-semibold mb-1">Assign Follow Up</h3>
+              <p className="text-sm text-muted-foreground mb-5">
+                Assigning a leader to follow up with <strong>{assigningMember.name}</strong> ({assigningMember.absences} absences).
+              </p>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="leader-select">Select Leader</Label>
+                  {leaders.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No leaders found in this organization.</p>
+                  ) : (
+                    <select
+                      id="leader-select"
+                      value={selectedLeader}
+                      onChange={(e) => setSelectedLeader(e.target.value)}
+                      className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm"
+                    >
+                      <option value="">-- Select a leader --</option>
+                      {leaders.map((l: any) => (
+                        <option key={l._id} value={l._id}>
+                          {l.name} {l.role === "admin" ? "(Admin)" : "(Leader)"}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Notes (optional)</Label>
+                  <textarea
+                    id="notes"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="e.g. Please call this weekend, check on health..."
+                    rows={3}
+                    className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <span className="inline-block h-2 w-2 rounded-full bg-amber-400"></span>
+                  Email notification will be available in a future update.
+                </p>
+
+                <div className="flex gap-2 justify-end pt-2">
+                  <Button variant="outline" onClick={() => setAssigningMember(null)}>Cancel</Button>
+                  <Button onClick={handleSaveAssignment} disabled={!selectedLeader || saving}>
+                    {saving ? "Saving..." : "Assign"}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
