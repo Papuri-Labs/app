@@ -42,6 +42,7 @@ import TransactionHistoryPage from "./pages/TransactionHistoryPage";
 import GivingReportsPage from "./pages/GivingReportsPage";
 import PrayerRequestsPage from "./pages/PrayerRequestsPage";
 import AssignmentsPage from "./pages/AssignmentsPage";
+import AuthRedirectPage from "./pages/AuthRedirectPage";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { Outlet } from "react-router-dom";
 import { Layout } from "@/components/Layout";
@@ -66,6 +67,9 @@ const App = () => (
               <Toaster />
               <Sonner />
               <Routes>
+                {/* Post-auth redirect: Clerk always lands here; Convex resolves the real org slug */}
+                <Route path="/auth/redirect" element={<AuthRedirectPage />} />
+
                 {/* Public Org-aware Landing Page */}
                 <Route path="/:orgSlug" element={<Index />} />
 

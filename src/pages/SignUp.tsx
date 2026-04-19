@@ -18,7 +18,7 @@ export default function SignUp() {
   const publicSettings = useQuery(api.settings.getPublicBySlug, { slug: slug || "my-church" });
 
   if (isSignedIn) {
-    return <Navigate to={`/${slug}/dashboard`} replace />;
+    return <Navigate to="/" replace />;
   }
 
   return (
@@ -42,7 +42,7 @@ export default function SignUp() {
 
         <ClerkSignUp
           signInUrl={`/${slug}/login`}
-          forceRedirectUrl={`/${slug}/dashboard`}
+          forceRedirectUrl="/auth/redirect"
         />
       </div>
     </div>
