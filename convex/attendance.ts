@@ -199,3 +199,176 @@ export const getDailyAttendance = query({
         return enriched;
     },
 });
+
+// Get all leaders of a specific ministry for the follow-up assignment picker
+export const getLeadersByMinistry = query({
+    args: { ministryId: v.optional(v.id("ministries")) },
+    handler: async (ctx, args) => {
+        const user = await getAuthUser(ctx);
+        if (!user || !isLeader(user)) throw new Error("Unauthorized");
+
+        const allUsers = await ctx.db
+            .query("users")
+            .withIndex("by_organization", (q) => q.eq("organizationId", user.organizationId))
+            .collect();
+
+        const leaders = allUsers.filter(u =>
+            u.isActive !== false &&
+            (u.role === "leader" || u.role === "admin") &&
+            (args.ministryId ? u.ministryIds?.includes(args.ministryId) : true)
+        );
+
+        return leaders.map(l => ({
+            _id: l._id,
+            name: l.name,
+            email: l.email,
+            role: l.role,
+            ministryIds: l.ministryIds,
+        }));
+    },
+});
+
+export const assignFollowUp = mutation({
+    args: {
+        memberId: v.id("users"),
+        leaderId: v.id("users"),
+        notes: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        const user = await getAuthUser(ctx);
+        if (!user || !isLeader(user)) throw new Error("Unauthorized");
+
+        // Upsert: if an open assignment already exists for this member, update it
+        const existing = await ctx.db
+            .query("follow_up_assignments")
+            .withIndex("by_org_and_member", (q) =>
+                q.eq("organizationId", user.organizationId).eq("memberId", args.memberId)
+            )
+            .filter((q) => q.neq(q.field("status"), "completed"))
+            .first();
+
+        if (existing) {
+            await ctx.db.patch(existing._id, {
+                leaderId: args.leaderId,
+                assignedBy: user._id,
+                notes: args.notes,
+                status: "pending",
+                // notifiedAt will be set here in the future when email is sent
+            });
+            return existing._id;
+        }
+
+        const id = await ctx.db.insert("follow_up_assignments", {
+            organizationId: user.organizationId,
+            memberId: args.memberId,
+            leaderId: args.leaderId,
+            assignedBy: user._id,
+            notes: args.notes,
+            status: "pending",
+            createdAt: Date.now(),
+        });
+
+        // TODO (email): When email feature is ready, call email scheduler here and set notifiedAt
+
+        return id;
+    },
+});
+
+export const listFollowUpAssignments = query({
+    args: {},
+    handler: async (ctx) => {
+        const user = await getAuthUser(ctx);
+        if (!user || !isLeader(user)) throw new Error("Unauthorized");
+
+        const records = await ctx.db
+            .query("follow_up_assignments")
+            .withIndex("by_organization", (q) => q.eq("organizationId", user.organizationId))
+            .order("desc")
+            .collect();
+
+        return await Promise.all(records.map(async (r) => {
+            const member = await ctx.db.get(r.memberId);
+            const leader = await ctx.db.get(r.leaderId);
+            const assignedByUser = await ctx.db.get(r.assignedBy);
+            return {
+                ...r,
+                memberName: member?.name ?? "Unknown",
+                leaderName: leader?.name ?? "Unknown",
+                leaderEmail: leader?.email ?? "",
+                assignedByName: assignedByUser?.name ?? "Unknown",
+            };
+        }));
+    },
+});
+
+// Get only the follow-up assignments assigned to the currently logged-in leader
+export const getMyFollowUpAssignments = query({
+    args: {},
+    handler: async (ctx) => {
+        const user = await getAuthUser(ctx);
+        if (!user || !isLeader(user)) return [];
+
+        const records = await ctx.db
+            .query("follow_up_assignments")
+            .withIndex("by_leader", (q) => q.eq("leaderId", user._id))
+            .order("desc")
+            .collect();
+
+        return await Promise.all(records.map(async (r) => {
+            const member = await ctx.db.get(r.memberId);
+            const assignedByUser = await ctx.db.get(r.assignedBy);
+            return {
+                ...r,
+                memberName: member?.name ?? "Unknown",
+                memberEmail: member?.email ?? "",
+                memberAbsences: 0, // Not tracked here — just for display
+                assignedByName: assignedByUser?.name ?? "Unknown",
+            };
+        }));
+    },
+});
+
+export const updateFollowUpStatus = mutation({
+    args: {
+        id: v.id("follow_up_assignments"),
+        status: v.union(v.literal("pending"), v.literal("in_progress"), v.literal("completed")),
+    },
+    handler: async (ctx, args) => {
+        const user = await getAuthUser(ctx);
+        if (!user || !isLeader(user)) throw new Error("Unauthorized");
+
+        const record = await ctx.db.get(args.id);
+        if (!record) throw new Error("Follow-up assignment not found");
+
+        // Only the assigned leader or an admin can update status
+        if (record.leaderId !== user._id && user.role !== "admin") {
+            throw new Error("Unauthorized: You are not the assigned leader for this follow-up.");
+        }
+
+        await ctx.db.patch(args.id, { status: args.status });
+        return args.id;
+    },
+});
+
+// Update the leader's own field notes on a follow-up assignment
+export const updateFollowUpNotes = mutation({
+    args: {
+        id: v.id("follow_up_assignments"),
+        leaderNotes: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const user = await getAuthUser(ctx);
+        if (!user || !isLeader(user)) throw new Error("Unauthorized");
+
+        const record = await ctx.db.get(args.id);
+        if (!record) throw new Error("Follow-up assignment not found");
+
+        // Only the assigned leader or an admin can write leader notes
+        if (record.leaderId !== user._id && user.role !== "admin") {
+            throw new Error("Unauthorized: You are not the assigned leader for this follow-up.");
+        }
+
+        await ctx.db.patch(args.id, { leaderNotes: args.leaderNotes });
+        return args.id;
+    },
+});
