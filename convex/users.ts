@@ -196,13 +196,18 @@ export const getAdminDirectory = query({
     args: {},
     handler: async (ctx) => {
         const user = await getAuthUser(ctx);
+        if (!user) throw new Error("Unauthorized");
+        
         const ministries = getUserMinistries(user);
 
         if (ministries !== "all") {
             throw new Error("Unauthorized");
         }
 
-        return await ctx.db.query("users").collect();
+        return await ctx.db
+            .query("users")
+            .withIndex("by_organization", (q) => q.eq("organizationId", user.organizationId))
+            .collect();
     }
 });
 
