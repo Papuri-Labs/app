@@ -304,6 +304,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             tracing: getTracing(),
                           });
                           setViewMode('member');
+                          navigate(getSlugUrl("/dashboard"));
                         }}
                         className="cursor-pointer"
                       >
@@ -323,6 +324,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             tracing: getTracing(),
                           });
                           setViewMode('leader');
+                          navigate(getSlugUrl("/dashboard"));
                         }}
                         className="cursor-pointer"
                       >
@@ -342,6 +344,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             tracing: getTracing(),
                           });
                           setViewMode('finance');
+                          navigate(getSlugUrl("/dashboard"));
                         }}
                         className="cursor-pointer"
                       >
