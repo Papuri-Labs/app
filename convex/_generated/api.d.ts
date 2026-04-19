@@ -11,6 +11,7 @@
 import type * as accounts from "../accounts.js";
 import type * as assignments from "../assignments.js";
 import type * as attendance from "../attendance.js";
+import type * as biblePlan from "../biblePlan.js";
 import type * as budgets from "../budgets.js";
 import type * as bulletins from "../bulletins.js";
 import type * as clerk from "../clerk.js";
@@ -48,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   accounts: typeof accounts;
   assignments: typeof assignments;
   attendance: typeof attendance;
+  biblePlan: typeof biblePlan;
   budgets: typeof budgets;
   bulletins: typeof bulletins;
   clerk: typeof clerk;

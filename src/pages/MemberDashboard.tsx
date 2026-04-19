@@ -3,6 +3,7 @@ import { Layout } from "@/components/Layout";
 import { DashboardCard } from "@/components/DashboardCard";
 import { StatCard } from "@/components/StatCard";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { Calendar, FileText, BookOpen, Bell, Heart, Users, ClipboardList, Check, XCircle, AlertCircle, Loader2, Image as ImageIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link, useParams } from "react-router-dom";
@@ -23,16 +24,19 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
-const bibleReading = {
-  plan: "",
-  todayReading: "",
-  progress: 0,
-};
+// Fetch Bible Reading data (Moved inside component)
+
 
 export default function MemberDashboard() {
   const { orgSlug } = useParams<{ orgSlug: string }>();
   const { user } = useAuth();
   const logUIEvent = useMutation(api.logs.logUIEvent);
+
+  // Fetch Bible Reading data
+  const activePlanData = useQuery(api.biblePlan.getMyActivePlan);
+  const markAsRead = useMutation(api.biblePlan.markDayComplete);
+  const [isMarking, setIsMarking] = useState(false);
+
   const [selectedGiving, setSelectedGiving] = useState<any>(null);
   const givingOptions = useQuery(api.giving_options.list) || [];
 
@@ -254,16 +258,72 @@ export default function MemberDashboard() {
             </div>
           </DashboardCard>
 
-          <DashboardCard title="Bible Reading" description={bibleReading.plan} icon={<BookOpen className="h-5 w-5 text-primary" />} gradient="gradient-member">
+          <DashboardCard 
+            title="Bible Reading" 
+            description={activePlanData?.plan?.title || "Daily Scripture"} 
+            icon={<BookOpen className="h-5 w-5 text-primary" />} 
+            gradient="gradient-member"
+          >
             <div className="p-4 rounded-xl glass-subtle">
               <p className="text-xs text-muted-foreground mb-1">Today's Reading</p>
               <p className="text-sm font-medium">
-                {bibleReading.todayReading || "No reading assigned yet."}
+                {activePlanData ? (
+                  activePlanData.readings.find((r: any) => {
+                    const start = new Date(activePlanData.assignment.startDate);
+                    const now = new Date();
+                    start.setHours(0, 0, 0, 0);
+                    now.setHours(0, 0, 0, 0);
+                    const diffDays = Math.ceil(Math.abs(now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+                    return r.dayNumber === (diffDays + 1);
+                  })?.scripture || "All caught up for today!"
+                ) : (
+                  "No reading assigned yet."
+                )}
               </p>
+              {activePlanData && (
+                <div className="mt-3 space-y-1">
+                  <div className="flex justify-between items-center text-[10px] text-muted-foreground">
+                    <span>Progress</span>
+                    <span>{Math.round((activePlanData.progress.length / activePlanData.plan.duration) * 100)}%</span>
+                  </div>
+                  <Progress value={(activePlanData.progress.length / activePlanData.plan.duration) * 100} className="h-1" />
+                </div>
+              )}
             </div>
             <div className="mt-3 flex gap-2">
-              <Button size="sm">Mark as Read</Button>
-              <Button variant="outline" size="sm">View Plan</Button>
+              {activePlanData && (
+                <Button 
+                  size="sm" 
+                  disabled={isMarking || activePlanData.progress.includes(Math.ceil(Math.abs(new Date().setHours(0,0,0,0) - new Date(activePlanData.assignment.startDate).setHours(0,0,0,0)) / (1000 * 60 * 60 * 24)) + 1)}
+                  onClick={async () => {
+                    const start = new Date(activePlanData.assignment.startDate);
+                    const now = new Date();
+                    start.setHours(0, 0, 0, 0);
+                    now.setHours(0, 0, 0, 0);
+                    const todayDay = Math.ceil(Math.abs(now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                    
+                    setIsMarking(true);
+                    try {
+                      await markAsRead({
+                        assignmentId: activePlanData.assignment._id,
+                        dayNumber: todayDay,
+                        tracing: getTracing()
+                      });
+                      toast.success("Reading marked as complete!");
+                    } catch (e) {
+                      toast.error("Failed to mark as read");
+                    } finally {
+                      setIsMarking(false);
+                    }
+                  }}
+                >
+                  {isMarking ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : null}
+                  Mark as Read
+                </Button>
+              )}
+              <Link to={`/${orgSlug}/bible-reading`} className={activePlanData ? "" : "w-full"}>
+                <Button variant="outline" size="sm" className="w-full">View Full Plan</Button>
+              </Link>
             </div>
           </DashboardCard>
 

@@ -37,6 +37,7 @@ export function NotificationBell() {
         api.attendance.getMyFollowUpAssignments,
         user?.role === "leader" || user?.role === "admin" ? {} : "skip"
     ) || [];
+    const bibleReading = useQuery(api.biblePlan.getMyActivePlan) || null;
 
     // Combine and sort notifications
     const notifications = [
@@ -85,6 +86,13 @@ export function NotificationBell() {
                 date: a.createdAt ?? a._creationTime,
                 link: "/follow-ups",
             })),
+        ...(bibleReading ? [{
+            id: `br-${bibleReading.assignment._id}`,
+            type: "Bible Reading",
+            title: `New plan: ${bibleReading.plan?.title}`,
+            date: bibleReading.assignment.createdAt ?? bibleReading.assignment._creationTime,
+            link: "/bible-reading",
+        }] : []),
     ].sort((a, b) => b.date - a.date)
         .slice(0, 15);
 
@@ -151,6 +159,7 @@ export function NotificationBell() {
                                         n.type === "Announcement" ? "bg-accent/10 text-accent-foreground" :
                                         n.type === "Assignment" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" :
                                         n.type === "Follow-Up" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" :
+                                        n.type === "Bible Reading" ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400" :
                                         "bg-muted text-muted-foreground"
                                     }`}>
                                         {n.type}

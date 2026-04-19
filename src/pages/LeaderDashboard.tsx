@@ -3,7 +3,8 @@ import { Layout } from "@/components/Layout";
 import { DashboardCard } from "@/components/DashboardCard";
 import { StatCard } from "@/components/StatCard";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Calendar, FileText, Users, TrendingUp, Cake, ChevronLeft, ChevronRight, Edit2, Trash2, ClipboardList } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { BarChart3, Calendar, FileText, Users, TrendingUp, Cake, ChevronLeft, ChevronRight, Edit2, Trash2, ClipboardList, BookOpen } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -12,6 +13,7 @@ import { RsvpDialog } from "@/components/RsvpDialog";
 import { AssignmentDialog } from "@/components/AssignmentDialog";
 import { getTracing } from "@/lib/tracing";
 import { getLocalSysDate } from "@/lib/utils";
+import { Link } from "react-router-dom";
 
 export default function LeaderDashboard() {
   const { user } = useAuth();
@@ -27,6 +29,7 @@ export default function LeaderDashboard() {
   const members = useQuery(api.users.getMemberDirectory) || [];
   const events = useQuery(api.events.list) || [];
   const bulletins = useQuery(api.bulletins.listBulletins) || [];
+  const biblePlans = useQuery(api.biblePlan.listPlans) || [];
 
   // Filter bulletins - Leaders only see their ministry's bulletins in this dashboard
   const myBulletins = bulletins.filter(b => b.ministryId && ministryIds.includes(b.ministryId));
@@ -303,6 +306,37 @@ export default function LeaderDashboard() {
               <div className="flex items-center justify-between p-3 rounded-xl glass-subtle">
                 <span className="text-sm text-muted-foreground">New</span>
                 <span className="text-sm font-semibold text-primary">{newMembers}</span>
+              </div>
+            </div>
+          </DashboardCard>
+          
+          <DashboardCard 
+            title="Bible Reading" 
+            description="Manage reading plans" 
+            icon={<BookOpen className="h-5 w-5 text-primary" />} 
+            gradient="gradient-leader"
+          >
+            <div className="space-y-4">
+              <div className="p-4 rounded-xl bg-primary/5 border border-primary/10">
+                <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-widest font-bold">Total Active Plans</p>
+                <p className="text-3xl font-extrabold text-primary">{biblePlans.length}</p>
+              </div>
+              
+              <div className="space-y-2">
+                {biblePlans.slice(0, 2).map((p: any) => (
+                  <div key={p._id} className="text-sm p-2 rounded-lg hover:bg-muted/50 transition-colors flex items-center justify-between border border-transparent hover:border-primary/10">
+                    <span className="truncate flex-1 font-medium">{p.title}</span>
+                    <Badge variant="outline" className="text-[9px] h-4 ml-2 opacity-70">{p.duration}d</Badge>
+                  </div>
+                ))}
+              </div>
+
+              <div className="pt-2">
+                <Link to={`/${user?.organizationSlug}/manage-bible-reading`} className="w-full block">
+                  <Button variant="outline" size="sm" className="w-full border-primary/20 hover:bg-primary/5">
+                    <BookOpen className="h-3.5 w-3.5 mr-2" /> Manage Reading
+                  </Button>
+                </Link>
               </div>
             </div>
           </DashboardCard>
