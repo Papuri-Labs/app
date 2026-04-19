@@ -190,9 +190,9 @@ export default function TransactionHistoryPage() {
             <Dialog open={!!editingTransaction} onOpenChange={(open) => !open && setEditingTransaction(null)}>
                 <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
-                        <DialogTitle className="font-outfit">Edit Transaction</DialogTitle>
+                        <DialogTitle className="font-outfit text-accent">Edit Transaction</DialogTitle>
                         <DialogDescription>
-                            Update the details of this giving transaction.
+                            Updating transaction for <strong className="text-foreground">{editingTransaction?.userName}</strong>.
                         </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleUpdate} className="space-y-4 py-4">

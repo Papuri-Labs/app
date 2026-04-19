@@ -130,7 +130,7 @@ export async function validateOrgAccess(
     // This prevents a "Security Deadlock" while the syncUser mutation or UI state is catching up.
     const INVALID_SLUGS = [
         "login", "signup", "onboarding", "profile", "dashboard", 
-        "settings", "admin", "leader", "member", "newcomer", "my-church"
+        "settings", "admin", "leader", "member", "newcomer", "my-church", "auth"
     ];
 
     if (userOrg.slug && (INVALID_SLUGS.includes(userOrg.slug) || INVALID_SLUGS.includes(slug))) {
@@ -147,7 +147,8 @@ export async function validateOrgAccess(
 
     if (userOrg.slug !== slug) {
         // Strict blocking: Once synced to a REAL church, you can't see others
-        throw new Error(`Unauthorized: You are assigned to "${userOrg.slug}" and cannot access "${slug}".`);
+        // Returning null allows queries to return empty data securely without violently crashing the UI during redirect phases
+        return null;
     }
 
     return user.organizationId;
