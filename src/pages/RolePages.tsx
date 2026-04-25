@@ -59,7 +59,7 @@ import {
   ChevronUp,
   ChevronDown,
   RefreshCw,
-  Search, Hash, Info,
+  Search, Hash, Info, Lock,
   ArrowRight, AlertTriangle
 } from "lucide-react";
 import { format } from "date-fns";
@@ -4343,6 +4343,7 @@ export function SettingsPage() {
 
   const churchName = orgNameEdit ?? organization?.name ?? defaultSettings.welcomeTitle;
   const churchSlug = orgSlugEdit ?? organization?.slug ?? "my-church";
+  const churchJoinCode = edits.joinCode !== undefined ? edits.joinCode : (organization?.joinCode ?? "");
 
   // Auto-save effect
   const handleUpdate = (updates: any) => {
@@ -4377,7 +4378,8 @@ export function SettingsPage() {
       updateOrg({
         organizationId: user.organizationId as Id<"organizations">,
         name: updates.name ?? churchName,
-        slug: updates.slug ?? churchSlug
+        slug: updates.slug ?? churchSlug,
+        joinCode: updates.joinCode !== undefined ? updates.joinCode : (edits.joinCode !== undefined ? edits.joinCode : organization?.joinCode)
       }).catch(console.error);
     }
   };
@@ -4496,6 +4498,41 @@ export function SettingsPage() {
                     />
                   </div>
                   <p className="text-[10px] opacity-70">Example: #f59e0b</p>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t space-y-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Lock className="h-4 w-4 text-primary" />
+                  <Label className="font-bold">Church Access Control</Label>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <Label htmlFor="join-code">Church Access Code</Label>
+                    {churchJoinCode && (
+                       <Badge variant="outline" className="text-[10px] bg-success/10 text-success border-success/20">
+                         Active
+                       </Badge>
+                    )}
+                  </div>
+                  <div className="relative group">
+                    <Input
+                      id="join-code"
+                      placeholder="Leave empty for public access"
+                      value={churchJoinCode}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setEdits(prev => ({ ...prev, joinCode: val }));
+                        handleOrgUpdate({ joinCode: val });
+                      }}
+                      className="pr-10 font-mono tracking-widest"
+                      type="text"
+                    />
+                    <Hash className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground italic">
+                    If set, new users must enter this code to join your church. Existing members are not affected.
+                  </p>
                 </div>
               </div>
             </div>

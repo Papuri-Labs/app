@@ -6,6 +6,7 @@ export default defineSchema({
   organizations: defineTable({
     name: v.string(),
     slug: v.string(), // unique identifier, e.g., "my-church"
+    joinCode: v.optional(v.string()), // code required for new users to join
     plan: v.string(), // "self-hosted", "free", "basic", "premium"
     status: v.string(), // "active", "suspended", "trial"
     createdAt: v.number(),
