@@ -106,6 +106,7 @@ export default defineSchema({
     name: v.string(),
     request: v.string(),
     status: v.string(), // "Open", "Prayed", "Archived"
+    category: v.optional(v.string()),
     ministryId: v.optional(v.id("ministries")),
     createdAt: v.number(),
   })

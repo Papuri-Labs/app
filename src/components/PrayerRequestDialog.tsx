@@ -10,6 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -28,6 +35,7 @@ export function PrayerRequestDialog({ isOpen, onClose }: PrayerRequestDialogProp
     // Form state
     const [name, setName] = useState("");
     const [request, setRequest] = useState("");
+    const [category, setCategory] = useState("Others");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Pre-fill name if user is logged in
@@ -54,6 +62,7 @@ export function PrayerRequestDialog({ isOpen, onClose }: PrayerRequestDialogProp
             await submit({
                 name: name.trim(),
                 request: request.trim(),
+                category: category,
                 ministryId: user?.ministryIds?.[0] as any, // Cast to any to avoid Id narrowing issues
             });
             toast.success("Prayer request submitted successfully");
@@ -83,6 +92,22 @@ export function PrayerRequestDialog({ isOpen, onClose }: PrayerRequestDialogProp
                             placeholder="Your name"
                             required
                         />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="pr-category">Category</Label>
+                        <Select value={category} onValueChange={setCategory}>
+                            <SelectTrigger id="pr-category">
+                                <SelectValue placeholder="Select a category" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Health">Health</SelectItem>
+                                <SelectItem value="Finances">Finances</SelectItem>
+                                <SelectItem value="Family">Family</SelectItem>
+                                <SelectItem value="Spiritual Growth">Spiritual Growth</SelectItem>
+                                <SelectItem value="Career">Career</SelectItem>
+                                <SelectItem value="Others">Others</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="pr-request">How can we pray for you?</Label>
