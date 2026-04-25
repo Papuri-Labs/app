@@ -63,16 +63,32 @@ export const syncUser = mutation({
         email: v.string(),
         role: v.string(),
         orgSlug: v.string(),
+        joinCode: v.optional(v.string()),
         avatar: v.optional(v.string()),
         tracing: v.object(logArgs),
     },
     handler: async (ctx, args) => {
         const { tracing } = args;
         const startTime = Date.now();
+        
+        // Find the target organization first
+        const organizationId = await getOrCreateOrganization(ctx, args.orgSlug);
+        const org = await ctx.db.get(organizationId);
+
         const existingUser = await ctx.db
             .query("users")
-            .withIndex("by_clerk_id", (q) => q.eq("userId", args.userId))
+            .withIndex("by_org_and_clerk", (q) => 
+                q.eq("organizationId", organizationId).eq("userId", args.userId)
+            )
             .first();
+
+        // Validation for new joiners
+        if (!existingUser && org?.joinCode) {
+            if (args.joinCode !== org.joinCode) {
+                console.error(`[users:syncUser] Join attempt rejected for ${args.email} on ${args.orgSlug}: Invalid code`);
+                throw new Error("INVALID_JOIN_CODE");
+            }
+        }
 
         if (existingUser) {
             const currentOrg = existingUser.organizationId ? await ctx.db.get(existingUser.organizationId) : null;
@@ -112,9 +128,6 @@ export const syncUser = mutation({
             return existingUser._id;
         }
 
-        // Get or create the organization based on the provided slug (only for new users)
-        const organizationId = await getOrCreateOrganization(ctx, args.orgSlug);
-
         const newUserId = await ctx.db.insert("users", {
             organizationId,
             userId: args.userId,
@@ -142,12 +155,35 @@ export const syncUser = mutation({
 });
 
 export const getUser = query({
-    args: { userId: v.string() },
+    args: { 
+        userId: v.string(),
+        orgSlug: v.optional(v.string())
+    },
     handler: async (ctx, args) => {
-        const user = await ctx.db
-            .query("users")
-            .withIndex("by_clerk_id", (q) => q.eq("userId", args.userId))
-            .first();
+        let user;
+        
+        if (args.orgSlug) {
+            const org = await ctx.db
+                .query("organizations")
+                .withIndex("by_slug", (q) => q.eq("slug", args.orgSlug!))
+                .first();
+            
+            if (org) {
+                user = await ctx.db
+                    .query("users")
+                    .withIndex("by_org_and_clerk", (q) => 
+                        q.eq("organizationId", org._id).eq("userId", args.userId)
+                    )
+                    .first();
+            }
+        }
+
+        if (!user) {
+            user = await ctx.db
+                .query("users")
+                .withIndex("by_clerk_id", (q) => q.eq("userId", args.userId))
+                .first();
+        }
 
         // Only return active users
         if (user && user.isActive !== false) {

@@ -58,11 +58,26 @@ export const listPublic = query({
     },
 });
 
+export const getJoinCodeRequirement = query({
+    args: { slug: v.string() },
+    handler: async (ctx, args) => {
+        const org = await ctx.db
+            .query("organizations")
+            .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+            .first();
+        return { 
+            isRequired: !!org?.joinCode,
+            orgName: org?.name || ""
+        };
+    },
+});
+
 export const update = mutation({
     args: {
         organizationId: v.id("organizations"),
         name: v.string(),
         slug: v.optional(v.string()),
+        joinCode: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         const user = await getAuthUser(ctx);
@@ -75,6 +90,7 @@ export const update = mutation({
 
         const updates: any = { name: args.name };
         if (args.slug) updates.slug = args.slug;
+        if (args.joinCode !== undefined) updates.joinCode = args.joinCode;
 
         await ctx.db.patch(args.organizationId, updates);
     },

@@ -3,6 +3,9 @@ import { useAuth as useClerkAuth, useUser } from "@clerk/clerk-react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { getTracing } from "../lib/tracing";
+import { JoinCodeModal } from "@/components/JoinCodeModal";
+import { toast } from "sonner";
+import { Id } from "../../convex/_generated/dataModel";
 
 export type UserRole = "newcomer" | "member" | "leader" | "finance" | "admin";
 
@@ -141,53 +144,96 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const syncUser = useMutation(api.users.syncUser);
   const syncAttempted = React.useRef<string | null>(null);
 
-  // Query user data from Convex
-  const convexUser = useQuery(
-    api.users.getUser,
-    clerkUser ? { userId: clerkUser.id } : "skip"
+  // Join Code States
+  const [showJoinCodeModal, setShowJoinCodeModal] = useState(false);
+  const [pendingJoinCode, setPendingJoinCode] = useState<string | null>(null);
+
+  // 0. Determine current context
+  const urlSlug = getOrgSlugFromUrl();
+  const isReserved = RESERVED_ROUTE_KEYWORDS.includes(urlSlug);
+  const effectiveSlug = isReserved 
+    ? (getPersistedOrgSlug() || "my-church") 
+    : (urlSlug || "my-church");
+
+  // Load join code requirement for the target org
+  const joinRequirement = useQuery(
+    api.organizations.getJoinCodeRequirement,
+    { slug: effectiveSlug }
   );
 
-  // 1. Handle Syncing (Triggered once per sign-in)
+  // Query user data from Convex (scoped to current org)
+  const convexUser = useQuery(
+    api.users.getUser,
+    clerkUser ? { userId: clerkUser.id, orgSlug: effectiveSlug } : "skip"
+  );
+
+  const performSync = async (code?: string) => {
+    if (!clerkUser) return;
+    
+    setIsSyncing(true);
+    const role = (clerkUser.publicMetadata.role as UserRole) || "newcomer";
+
+    try {
+      await syncUser({
+        userId: clerkUser.id,
+        name: clerkUser.fullName || clerkUser.username || "User",
+        email: clerkUser.primaryEmailAddress?.emailAddress || "",
+        role: role,
+        orgSlug: effectiveSlug,
+        joinCode: code,
+        avatar: clerkUser.imageUrl,
+        tracing: getTracing(),
+      });
+      console.log("[AuthContext] Sync completed");
+      setShowJoinCodeModal(false);
+      setPendingJoinCode(null);
+    } catch (err: any) {
+      console.error("[AuthContext] Sync failed:", err);
+      syncAttempted.current = null;
+      throw err; // Propagate to caller (JoinCodeModal)
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // 1. Handle Syncing (Triggered once per sign-in or org change)
   useEffect(() => {
-    if (isLoaded && isSignedIn && clerkUser) {
-      // Prioritize Clerk Metadata as the Source of Truth, then the URL
-      const urlSlug = getOrgSlugFromUrl();
-      const isReserved = RESERVED_ROUTE_KEYWORDS.includes(urlSlug);
-      
-      const effectiveSlug = isReserved 
-        ? (getPersistedOrgSlug() || "my-church") 
-        : (urlSlug || "my-church");
-
+    if (isLoaded && isSignedIn && clerkUser && joinRequirement && convexUser !== undefined) {
       const syncKey = `${clerkUser.id}-${effectiveSlug}`;
-      if (syncAttempted.current !== syncKey) {
-        console.log(`[AuthContext] Initiating sync for user: ${clerkUser.id} on org: ${effectiveSlug}`);
+      
+      // If user is already found for this specific org, we don't need to sync/join again
+      const isAlreadyInOrg = convexUser && convexUser.organizationSlug === effectiveSlug;
+      
+      if (isAlreadyInOrg) {
+        if (showJoinCodeModal) setShowJoinCodeModal(false);
         syncAttempted.current = syncKey;
-        setIsSyncing(true);
-        
-        // Initial role suggestion (only used for new user creation in Convex)
-        const role = (clerkUser.publicMetadata.role as UserRole) || "newcomer";
+        return;
+      }
 
-        syncUser({
-          userId: clerkUser.id,
-          name: clerkUser.fullName || clerkUser.username || "User",
-          email: clerkUser.primaryEmailAddress?.emailAddress || "",
-          role: role,
-          orgSlug: effectiveSlug,
-          avatar: clerkUser.imageUrl,
-          tracing: getTracing(),
-        }).then(() => {
-          console.log("[AuthContext] Sync completed");
-          setIsSyncing(false);
-        }).catch((err) => {
-          console.error("[AuthContext] Sync failed:", err);
-          syncAttempted.current = null;
-          setIsSyncing(false);
-        });
+      // DO NOT auto-sync if we are on a reserved route (like landing page or login)
+      // AND we don't have a specific church context (effectiveSlug is still my-church).
+      // This prevents creating placeholder "my-church" accounts while allowing join code modal 
+      // to trigger when a user is specifically trying to join a real church.
+      const isAtLandingPage = window.location.pathname === "/";
+      const isSyncBlocked = effectiveSlug === "my-church" && (isReserved || isAtLandingPage);
+
+      if (syncAttempted.current !== syncKey && !isSyncBlocked) {
+        // If join code is required and user hasn't joined THIS org yet
+        if (joinRequirement.isRequired && !isAlreadyInOrg) {
+          console.log(`[AuthContext] Join code required for ${effectiveSlug}. Showing modal.`);
+          setShowJoinCodeModal(true);
+          return;
+        }
+
+        console.log(`[AuthContext] Initiating auto-sync for user: ${clerkUser.id} on org: ${effectiveSlug}`);
+        syncAttempted.current = syncKey;
+        performSync();
       }
     } else if (isLoaded && !isSignedIn) {
       syncAttempted.current = null;
+      setShowJoinCodeModal(false);
     }
-  }, [isLoaded, isSignedIn, clerkUser?.id]); 
+  }, [isLoaded, isSignedIn, clerkUser?.id, effectiveSlug, joinRequirement, convexUser]); 
 
   // 2. Atomic User State Derivation (Source of Truth)
   const user = useMemo(() => {
@@ -265,6 +311,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }}
     >
       {children}
+      <JoinCodeModal 
+        isOpen={showJoinCodeModal} 
+        onClose={async () => {
+            setShowJoinCodeModal(false);
+            syncAttempted.current = null;
+            localStorage.removeItem("orgSlug");
+            // If they exit the join flow, sign them out of Clerk so they can try again fresh
+            await signOut({ redirectUrl: "/" });
+        }}
+        onJoin={performSync}
+        orgName={joinRequirement?.orgName || effectiveSlug}
+      />
     </AuthContext.Provider>
   );
 };
