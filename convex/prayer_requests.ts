@@ -7,6 +7,7 @@ export const submit = mutation({
     args: {
         name: v.string(),
         request: v.string(),
+        category: v.optional(v.string()),
         ministryId: v.optional(v.id("ministries")),
     },
     handler: async (ctx, args) => {
@@ -19,6 +20,7 @@ export const submit = mutation({
             name: args.name,
             request: args.request,
             status: "Open",
+            category: args.category,
             ministryId: args.ministryId,
             createdAt: Date.now(),
         });
@@ -67,6 +69,7 @@ export const submit = mutation({
                     <h2 style="color: #333; margin-top: 0;">New Prayer Request</h2>
                     <p style="color: #555; text-transform: uppercase; font-size: 12px; font-weight: bold; margin-bottom: 20px;">
                         From: ${args.name}
+                        ${args.category ? `<br/>Category: ${args.category}` : ''}
                         ${args.ministryId ? '<br/>Target Ministry: Selected' : ''}
                     </p>
                     <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #6366f1; font-size: 16px; line-height: 1.5; color: #333;">
