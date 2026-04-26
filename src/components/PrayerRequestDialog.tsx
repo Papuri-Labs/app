@@ -22,14 +22,17 @@ import { api } from "../../convex/_generated/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { useParams } from "react-router-dom";
 
 interface PrayerRequestDialogProps {
     isOpen: boolean;
     onClose: () => void;
+    isGlobal?: boolean;
 }
 
-export function PrayerRequestDialog({ isOpen, onClose }: PrayerRequestDialogProps) {
+export function PrayerRequestDialog({ isOpen, onClose, isGlobal }: PrayerRequestDialogProps) {
     const { user } = useAuth();
+    const { orgSlug } = useParams<{ orgSlug: string }>();
     const submit = useMutation(api.prayer_requests.submit);
 
     // Form state
@@ -63,7 +66,8 @@ export function PrayerRequestDialog({ isOpen, onClose }: PrayerRequestDialogProp
                 name: name.trim(),
                 request: request.trim(),
                 category: category,
-                ministryId: user?.ministryIds?.[0] as any, // Cast to any to avoid Id narrowing issues
+                ministryId: isGlobal ? undefined : (user?.ministryIds?.[0] as any), // Use isGlobal to skip ministry association
+                orgSlug,
             });
             toast.success("Prayer request submitted successfully");
             setRequest(""); // Clear request

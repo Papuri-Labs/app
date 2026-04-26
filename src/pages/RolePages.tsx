@@ -4367,6 +4367,7 @@ export function SettingsPage() {
       visitInfo: next.visitInfo,
       enabledModules: next.enabledModules,
       typography: next.typography,
+      connectPageEnabled: next.connectPageEnabled,
     }).catch(console.error);
   };
 
@@ -4675,6 +4676,47 @@ export function SettingsPage() {
                     />
                   </div>
                 ))}
+
+                {/* Dedicated Connect Page Toggle */}
+                <div className="pt-4 mt-2 border-t border-white/5 space-y-4">
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-primary/5 border border-primary/10">
+                    <div className="space-y-0.5">
+                      <Label className="text-sm font-bold text-primary">Connect Landing Page</Label>
+                      <p className="text-[10px] text-muted-foreground">STANDALONE: Prayer Requests & First Timers</p>
+                    </div>
+                    <Switch
+                      checked={!!currentSettings.connectPageEnabled}
+                      onCheckedChange={(checked) => handleUpdate({ connectPageEnabled: checked })}
+                    />
+                  </div>
+                  
+                  {currentSettings.connectPageEnabled && (
+                    <div className="p-3 rounded-xl bg-white/5 border border-dashed border-primary/30 animate-in fade-in slide-in-from-top-2">
+                      <Label className="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider">Your Unique QR Link</Label>
+                      <div className="flex gap-2">
+                        <Input 
+                          readOnly 
+                          value={`${window.location.origin}/${churchSlug}/connect`}
+                          className="h-8 text-xs bg-black/20 border-white/10 font-mono"
+                        />
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="h-8 text-[10px]"
+                          onClick={() => {
+                            navigator.clipboard.writeText(`${window.location.origin}/${churchSlug}/connect`);
+                            toast.success("Link copied to clipboard");
+                          }}
+                        >
+                          Copy
+                        </Button>
+                      </div>
+                      <p className="text-[9px] text-muted-foreground mt-2 italic">
+                        Generate a QR code using this link and place it in your church lobby.
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </DashboardCard>

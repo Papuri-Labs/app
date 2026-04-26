@@ -9,10 +9,25 @@ export const submit = mutation({
         request: v.string(),
         category: v.optional(v.string()),
         ministryId: v.optional(v.id("ministries")),
+        orgSlug: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         const user = await getAuthUser(ctx);
-        const organizationId = user ? user.organizationId : await getDefaultOrganizationId(ctx);
+        let organizationId;
+
+        if (user) {
+            organizationId = user.organizationId;
+        } else if (args.orgSlug) {
+            const slug = args.orgSlug;
+            const org = await ctx.db
+                .query("organizations")
+                .withIndex("by_slug", (q) => q.eq("slug", slug))
+                .first();
+            if (!org) throw new Error("Organization not found");
+            organizationId = org._id;
+        } else {
+            organizationId = await getDefaultOrganizationId(ctx);
+        }
 
         const id = await ctx.db.insert("prayer_requests", {
             organizationId,
@@ -98,7 +113,17 @@ export const list = query({
             .order("desc")
             .collect();
 
-        return requests;
+        return await Promise.all(requests.map(async (req) => {
+            let acknowledgedByName;
+            if (req.acknowledgedBy) {
+                const leader = await ctx.db.get(req.acknowledgedBy);
+                acknowledgedByName = leader?.name;
+            }
+            return {
+                ...req,
+                acknowledgedByName,
+            };
+        }));
     },
 });
 
@@ -108,6 +133,10 @@ export const toggleStatus = mutation({
         const user = await getAuthUser(ctx);
         if (!user || !isLeader(user)) throw new Error("Unauthorized");
 
-        await ctx.db.patch(args.id, { status: args.status });
+        await ctx.db.patch(args.id, { 
+            status: args.status,
+            acknowledgedBy: args.status === "Prayed" ? user._id : undefined,
+            acknowledgedAt: args.status === "Prayed" ? Date.now() : undefined,
+        });
     },
 });

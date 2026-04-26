@@ -73,6 +73,7 @@ export const upsert = mutation({
     visitInfo: v.optional(v.string()),
     enabledModules: v.optional(v.array(v.string())),
     typography: v.optional(v.string()),
+    connectPageEnabled: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const user = await getAuthUser(ctx);

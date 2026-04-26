@@ -31,6 +31,7 @@ import type * as migrations_001_add_organizations from "../migrations/001_add_or
 import type * as ministries from "../ministries.js";
 import type * as onboarding from "../onboarding.js";
 import type * as organizations from "../organizations.js";
+import type * as pdf_logs from "../pdf_logs.js";
 import type * as permissions from "../permissions.js";
 import type * as prayer_requests from "../prayer_requests.js";
 import type * as services from "../services.js";
@@ -69,6 +70,7 @@ declare const fullApi: ApiFromModules<{
   ministries: typeof ministries;
   onboarding: typeof onboarding;
   organizations: typeof organizations;
+  pdf_logs: typeof pdf_logs;
   permissions: typeof permissions;
   prayer_requests: typeof prayer_requests;
   services: typeof services;
