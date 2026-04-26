@@ -10,6 +10,7 @@ import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
+import ConnectPage from "./pages/ConnectPage";
 import NotFound from "./pages/NotFound";
 import {
   NewcomerOnboardingPage,
@@ -77,6 +78,7 @@ const App = () => (
                 {/* Auth Routes - also can be org-aware for branding */}
                 <Route path="/:orgSlug/login" element={<Login />} />
                 <Route path="/:orgSlug/signup" element={<SignUp />} />
+                <Route path="/:orgSlug/connect" element={<ConnectPage />} />
 
                 <Route element={<AppLayout />}>
                   {/* Protected Org-aware Routes */}

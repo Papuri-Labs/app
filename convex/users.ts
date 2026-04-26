@@ -447,6 +447,54 @@ export const internalUpdateRole = internalMutation({
     }
 });
 
+export const submitFirstTimer = mutation({
+    args: {
+        name: v.string(),
+        email: v.string(),
+        contactNumber: v.optional(v.string()),
+        orgSlug: v.string(),
+        message: v.optional(v.string()),
+        heardFrom: v.optional(v.string()),
+        birthday: v.optional(v.string()),
+        address: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        const org = await ctx.db
+            .query("organizations")
+            .withIndex("by_slug", (q) => q.eq("slug", args.orgSlug))
+            .first();
+        if (!org) throw new Error("Organization not found");
+
+        const newUserId = await ctx.db.insert("users", {
+            organizationId: org._id,
+            userId: `guest_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+            name: args.name,
+            email: args.email,
+            contactNumber: args.contactNumber,
+            birthday: args.birthday,
+            address: args.address,
+            role: "newcomer",
+            status: "New",
+            ministryIds: [],
+            isActive: true,
+        });
+
+        // Optionally record the message as a prayer request or log it
+        if (args.message) {
+            await ctx.db.insert("prayer_requests", {
+                organizationId: org._id,
+                name: args.name,
+                request: `${args.message}${args.heardFrom ? `\n\nHeard via: ${args.heardFrom}` : ""}`,
+                status: "Open",
+                isFirstTimer: true,
+                createdAt: Date.now(),
+            });
+        }
+
+        return newUserId;
+    },
+});
+
 export const toggleFinanceAccess = mutation({
     args: { userId: v.id("users"), isFinance: v.boolean() },
     handler: async (ctx, args) => {

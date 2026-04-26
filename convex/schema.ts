@@ -109,6 +109,9 @@ export default defineSchema({
     status: v.string(), // "Open", "Prayed", "Archived"
     category: v.optional(v.string()),
     ministryId: v.optional(v.id("ministries")),
+    acknowledgedBy: v.optional(v.id("users")),
+    acknowledgedAt: v.optional(v.number()),
+    isFirstTimer: v.optional(v.boolean()),
     createdAt: v.number(),
   })
     .index("by_organization", ["organizationId"])
@@ -220,7 +223,19 @@ export default defineSchema({
     visitInfo: v.optional(v.string()),
     enabledModules: v.optional(v.array(v.string())),
     typography: v.optional(v.string()),
+    connectPageEnabled: v.optional(v.boolean()),
   }).index("by_organization", ["organizationId"]),
+  
+  pdf_logs: defineTable({
+    organizationId: v.id("organizations"),
+    userId: v.id("users"),
+    userName: v.string(),
+    type: v.string(), // "prayer_requests" | "first_timers"
+    startDate: v.string(),
+    endDate: v.string(),
+    itemCount: v.number(),
+    timestamp: v.number(),
+  }).index("by_org_type", ["organizationId", "type"]),
 
   assignments: defineTable({
     organizationId: v.id("organizations"),
