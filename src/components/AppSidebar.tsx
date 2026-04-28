@@ -96,7 +96,6 @@ const navByRole: Record<UserRole, { label: string; items: NavItem[] }[]> = {
         { title: "Giving Maintenance", url: "/giving-maintenance", icon: Heart },
         { title: "Ministry Maintenance", url: "/ministries", icon: Building2 },
         { title: "Manage Bulletins", url: "/manage-bulletins", icon: FileText },
-        { title: "Roles & Permissions", url: "/roles", icon: Shield },
         { title: "System Stats", url: "/system-stats", icon: Activity },
         { title: "Gallery", url: "/gallery", icon: Image },
         { title: "Settings", url: "/settings", icon: Settings },
