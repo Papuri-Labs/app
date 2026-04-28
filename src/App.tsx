@@ -44,6 +44,7 @@ import TransactionHistoryPage from "./pages/TransactionHistoryPage";
 import GivingReportsPage from "./pages/GivingReportsPage";
 import PrayerRequestsPage from "./pages/PrayerRequestsPage";
 import AssignmentsPage from "./pages/AssignmentsPage";
+import FirstTimersPage from "./pages/FirstTimersPage";
 import AuthRedirectPage from "./pages/AuthRedirectPage";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { Outlet } from "react-router-dom";
@@ -109,6 +110,7 @@ const App = () => (
                 <Route path="/:orgSlug/assignments" element={<AssignmentsPage />} />
                 <Route path="/:orgSlug/gallery" element={<GalleryPage />} />
                 <Route path="/:orgSlug/reports" element={<ReportsPage />} />
+                <Route path="/:orgSlug/first-timers" element={<FirstTimersPage />} />
 
                 {/* Admin Routes */}
                 <Route path="/:orgSlug/system-stats" element={<SystemStatsPage />} />

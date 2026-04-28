@@ -69,6 +69,7 @@ const navByRole: Record<UserRole, { label: string; items: NavItem[] }[]> = {
         { title: "Assignments", url: "/assignments", icon: ClipboardCheck },
         { title: "Prayer Requests", url: "/prayer-requests", icon: MessageSquareHeart },
         { title: "Reports", url: "/reports", icon: FileText },
+        { title: "First Timers", url: "/first-timers", icon: UserPlus },
         { title: "Gallery", url: "/gallery", icon: Image },
       ],
 
@@ -98,6 +99,7 @@ const navByRole: Record<UserRole, { label: string; items: NavItem[] }[]> = {
         { title: "Manage Bulletins", url: "/manage-bulletins", icon: FileText },
         { title: "System Stats", url: "/system-stats", icon: Activity },
         { title: "Gallery", url: "/gallery", icon: Image },
+        { title: "First Timers", url: "/first-timers", icon: UserPlus },
         { title: "Settings", url: "/settings", icon: Settings },
       ],
     },

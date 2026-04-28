@@ -71,9 +71,13 @@ export function FirstTimerDialog({ isOpen, onClose }: FirstTimerDialogProps) {
             setHeardFrom("");
             setMessage("");
             onClose();
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to submit first timer form:", error);
-            toast.error("Something went wrong. Please try again.");
+            if (error?.message?.includes("EMAIL_ALREADY_EXISTS")) {
+                toast.error("This email is already registered with us.");
+            } else {
+                toast.error("Something went wrong. Please try again.");
+            }
         } finally {
             setIsSubmitting(false);
         }

@@ -128,6 +128,18 @@ export const syncUser = mutation({
             return existingUser._id;
         }
 
+        // Global duplicate-email guard — no two users may share the same email
+        if (args.email) {
+            const emailConflict = await ctx.db
+                .query("users")
+                .withIndex("by_email", (q) => q.eq("email", args.email))
+                .first();
+            if (emailConflict) {
+                console.error(`[users:syncUser] Duplicate email rejected: ${args.email}`);
+                throw new Error("EMAIL_ALREADY_EXISTS");
+            }
+        }
+
         const newUserId = await ctx.db.insert("users", {
             organizationId,
             userId: args.userId,
@@ -465,33 +477,44 @@ export const submitFirstTimer = mutation({
             .first();
         if (!org) throw new Error("Organization not found");
 
-        const newUserId = await ctx.db.insert("users", {
+        // Global duplicate-email guard — no two users may share the same email
+        const emailConflict = await ctx.db
+            .query("users")
+            .withIndex("by_email", (q) => q.eq("email", args.email))
+            .first();
+        if (emailConflict) {
+            throw new Error("EMAIL_ALREADY_EXISTS");
+        }
+
+        const firstTimerId = await ctx.db.insert("first_timers", {
             organizationId: org._id,
-            userId: `guest_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
             name: args.name,
             email: args.email,
             contactNumber: args.contactNumber,
             birthday: args.birthday,
             address: args.address,
-            role: "newcomer",
-            status: "New",
-            ministryIds: [],
-            isActive: true,
+            heardFrom: args.heardFrom,
+            message: args.message,
+            createdAt: Date.now(),
         });
 
-        // Optionally record the message as a prayer request or log it
-        if (args.message) {
-            await ctx.db.insert("prayer_requests", {
-                organizationId: org._id,
-                name: args.name,
-                request: `${args.message}${args.heardFrom ? `\n\nHeard via: ${args.heardFrom}` : ""}`,
-                status: "Open",
-                isFirstTimer: true,
-                createdAt: Date.now(),
-            });
-        }
+        console.log(`[submitFirstTimer] Processing submission for ${args.email} in org ${args.orgSlug} (ID: ${org._id})`);
 
-        return newUserId;
+        // If they left a message, also save it as a prayer request so staff can see it.
+        // Even if no message is provided, we'll create a record so they show up in the "First Timers" tab
+        await ctx.db.insert("prayer_requests", {
+            organizationId: org._id,
+            name: args.name,
+            request: args.message 
+                ? `${args.message}${args.heardFrom ? `\n\nHeard via: ${args.heardFrom}` : ""}`
+                : `New visitor joined! ${args.heardFrom ? `(Heard via: ${args.heardFrom})` : ""}`,
+            status: "Open",
+            category: "First Timer",
+            isFirstTimer: true,
+            createdAt: Date.now(),
+        });
+
+        return firstTimerId;
     },
 });
 
@@ -598,4 +621,24 @@ export const updateProfile = mutation({
 
         return user._id;
     },
+});
+export const listFirstTimers = query({
+    args: { orgSlug: v.string() },
+    handler: async (ctx, args) => {
+        const user = await getAuthUser(ctx);
+        if (!user) throw new Error("Unauthorized");
+        if (!isLeader(user) && user.role !== "admin") throw new Error("Unauthorized");
+
+        const org = await ctx.db
+            .query("organizations")
+            .withIndex("by_slug", (q) => q.eq("slug", args.orgSlug))
+            .first();
+        if (!org) return [];
+
+        return await ctx.db
+            .query("first_timers")
+            .withIndex("by_organization", (q) => q.eq("organizationId", org._id))
+            .order("desc")
+            .collect();
+    }
 });

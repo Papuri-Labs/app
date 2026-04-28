@@ -59,9 +59,9 @@ export default function PrayerRequestsPage() {
     const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
     const [pendingDownload, setPendingDownload] = useState<{ type: "prayer_requests" | "first_timers", count: number } | null>(null);
 
-    const submittedRequests = requests?.filter(r => r.status !== "Prayed" && !r.isFirstTimer) || [];
-    const prayedRequests = requests?.filter(r => r.status === "Prayed" && !r.isFirstTimer) || [];
-    const firstTimerRequests = requests?.filter(r => r.isFirstTimer) || [];
+    const submittedRequests = requests?.filter(r => r.status !== "Prayed" && !r.isFirstTimer && r.category !== "First Timer") || [];
+    const prayedRequests = requests?.filter(r => r.status === "Prayed" && !r.isFirstTimer && r.category !== "First Timer") || [];
+    const firstTimerRequests = requests?.filter(r => r.isFirstTimer || r.category === "First Timer") || [];
 
     const checkLogArgs = useMemo(() => ({
         type: activeTab === "firsttimers" ? "first_timers" : "prayer_requests",
@@ -82,12 +82,12 @@ export default function PrayerRequestsPage() {
     }, [activeTab, startDate, endDate, firstTimerRequests, prayedRequests]);
 
     const existingLog = useMemo(() => {
-        if (!logs) return undefined;
+        if (logs === undefined) return undefined;
         return logs.find(log => 
             log.startDate === startDate && 
             log.endDate === endDate && 
             log.itemCount === currentItemCount
-        );
+        ) || null;
     }, [logs, startDate, endDate, currentItemCount]);
 
     const handleToggle = async (id: Id<"prayer_requests">, currentStatus: string) => {
