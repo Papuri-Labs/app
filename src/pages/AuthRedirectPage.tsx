@@ -1,23 +1,31 @@
 import { useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth, getPersistedOrgSlug } from "@/contexts/AuthContext";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useAuth, RESERVED_ROUTE_KEYWORDS } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 /**
  * Dedicated post-authentication redirect handler.
  *
- * Clerk's forceRedirectUrl always lands here after any sign-in/sign-up.
- * We wait for Convex to fully load the user record (which includes the correct
- * organizationSlug), then navigate to the right dashboard.
+ * Clerk's forceRedirectUrl always lands here after any sign-in/sign-up,
+ * with an ?org=<slug> param set by Login.tsx.
  *
- * This keeps Clerk responsible ONLY for authentication.
- * All org/slug/role logic is driven solely by Convex data.
+ * We immediately persist the ?org param so AuthContext can find it,
+ * then wait for Convex to load the user's real organizationSlug before
+ * navigating to the correct dashboard.
  */
 export default function AuthRedirectPage() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const redirected = useRef(false);
+
+  // Step 1: The moment this page loads, grab ?org= from the URL and persist it.
+  // This fires synchronously before any useEffect so AuthContext picks it up.
+  const orgFromUrl = searchParams.get("org");
+  if (orgFromUrl && !RESERVED_ROUTE_KEYWORDS.includes(orgFromUrl)) {
+    localStorage.setItem("orgSlug", orgFromUrl);
+  }
 
   useEffect(() => {
     // Wait for AuthContext to finish loading Convex data
@@ -27,18 +35,21 @@ export default function AuthRedirectPage() {
     if (redirected.current) return;
 
     if (isAuthenticated && user) {
-      // Convex is the source of truth for the org slug
-      const slug = user.organizationSlug;
-      const requestedSlug = getPersistedOrgSlug();
+      // Convex is the source of truth for the org slug.
+      // Fall back to the ?org= URL param if Convex hasn't resolved it yet.
+      const convexSlug = user.organizationSlug;
+      const urlSlug = orgFromUrl && !RESERVED_ROUTE_KEYWORDS.includes(orgFromUrl) ? orgFromUrl : null;
+      const slug = (convexSlug && convexSlug !== "my-church") ? convexSlug : urlSlug;
 
       if (slug && slug !== "my-church") {
         redirected.current = true;
+        localStorage.setItem("orgSlug", slug);
         console.log(`[AuthRedirect] Redirecting authenticated user to /${slug}/dashboard`);
 
-        if (requestedSlug && requestedSlug !== slug && requestedSlug !== "my-church") {
-          localStorage.setItem("orgSlug", slug);
+        // Warn if the user tried to sign in to a different org than their home org
+        if (urlSlug && convexSlug && urlSlug !== convexSlug && convexSlug !== "my-church") {
           toast.info(`Redirected to your home workspace`, {
-            description: `You tried to sign in to '${requestedSlug}', but your account belongs to '${slug}'.`,
+            description: `You tried to sign in to '${urlSlug}', but your account belongs to '${convexSlug}'.`,
             position: typeof window !== 'undefined' && window.innerWidth < 768 ? "bottom-center" : "bottom-right",
             duration: 6000,
           });
@@ -46,7 +57,7 @@ export default function AuthRedirectPage() {
 
         navigate(`/${slug}/dashboard`, { replace: true });
       } else {
-        // Slug is missing or placeholder — still go to dashboard, Layout will fix it
+        // No valid slug found anywhere — let Layout handle it
         redirected.current = true;
         navigate(`/my-church/dashboard`, { replace: true });
       }
@@ -55,7 +66,7 @@ export default function AuthRedirectPage() {
       redirected.current = true;
       navigate("/", { replace: true });
     }
-  }, [isLoading, isAuthenticated, user, navigate]);
+  }, [isLoading, isAuthenticated, user, navigate, orgFromUrl]);
 
   return (
     <div className="flex h-screen w-full items-center justify-center bg-background">

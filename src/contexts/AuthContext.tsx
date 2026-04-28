@@ -80,11 +80,12 @@ export const RESERVED_ROUTE_KEYWORDS = [
 /** Extract the org slug from the current URL, falling back to "my-church" */
 function getOrgSlugFromUrl(): string {
   const params = new URLSearchParams(window.location.search);
-  const queryOrg = params.get("org");
-  
-  if (queryOrg && !RESERVED_ROUTE_KEYWORDS.includes(queryOrg)) {
-    localStorage.setItem("orgSlug", queryOrg);
-    return queryOrg;
+
+  // Handle ?org=<slug> — set by Login.tsx's forceRedirectUrl on /auth/redirect
+  const orgParam = params.get("org");
+  if (orgParam && !RESERVED_ROUTE_KEYWORDS.includes(orgParam)) {
+    localStorage.setItem("orgSlug", orgParam);
+    return orgParam;
   }
 
   const pathParts = window.location.pathname.split("/");

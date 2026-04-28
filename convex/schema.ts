@@ -471,6 +471,21 @@ export default defineSchema({
     postedBy: v.id("users"),
     createdAt: v.number(),
   }).index("by_group_plan_day", ["organizationId", "groupName", "planId", "dayNumber"]),
+
+  first_timers: defineTable({
+    organizationId: v.id("organizations"),
+    name: v.string(),
+    email: v.string(),
+    contactNumber: v.optional(v.string()),
+    birthday: v.optional(v.string()),
+    address: v.optional(v.string()),
+    heardFrom: v.optional(v.string()),
+    message: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_organization", ["organizationId"])
+    .index("by_email", ["email"])
+    .index("by_org_and_created", ["organizationId", "createdAt"]),
 });
 
 

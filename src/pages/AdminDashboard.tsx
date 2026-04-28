@@ -17,12 +17,14 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const allUsers = useQuery(api.users.getAdminDirectory) || [];
   const ministries = useQuery(api.ministries.list) || [];
+  const firstTimers = useQuery(api.users.listFirstTimers, { orgSlug: orgSlug || "" }) || [];
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
   const users = allUsers.filter((u: any) => u.isActive !== false);
 
   const totalUsers = users.length;
+  const totalVisitors = firstTimers.length;
   const activeMinistries = ministries.filter((m: any) => m.active).length;
 
   const sortedUsers = [...users].reverse();
@@ -56,6 +58,7 @@ export default function AdminDashboard() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           <StatCard label="Total Users" value={totalUsers} trend="neutral" icon={<Users className="h-5 w-5 text-primary" />} />
+          <StatCard label="Total Visitors" value={totalVisitors} trend="neutral" icon={<Activity className="h-5 w-5 text-accent" />} />
           <StatCard label="Ministries" value={activeMinistries} icon={<Database className="h-5 w-5 text-primary" />} />
         </div>
 
