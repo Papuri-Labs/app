@@ -4770,26 +4770,6 @@ export function SettingsPage() {
               </div>
             </div>
           </DashboardCard>
-
-          <DashboardCard title="Security" icon={<Shield className="h-5 w-5 text-primary" />} gradient="gradient-admin">
-            <p className="text-sm text-muted-foreground">Manage authentication, password policies, and 2FA.</p>
-            <Button size="sm" className="mt-3">Review Security</Button>
-          </DashboardCard>
-
-          <DashboardCard title="Integrations" icon={<Settings className="h-5 w-5 text-primary" />} gradient="gradient-admin">
-            <p className="text-sm text-muted-foreground">Connect giving platforms, email providers, and calendars.</p>
-            <Button size="sm" variant="outline" className="mt-3">Manage Integrations</Button>
-          </DashboardCard>
-
-          <DashboardCard title="Data Management" icon={<BarChart3 className="h-5 w-5 text-primary" />} gradient="gradient-admin">
-            <p className="text-sm text-muted-foreground">Configure data retention, exports, and backups.</p>
-            <Button size="sm" variant="outline" className="mt-3">Open Data Center</Button>
-          </DashboardCard>
-
-          <DashboardCard title="Notifications" icon={<Bell className="h-5 w-5 text-accent" />} gradient="gradient-admin">
-            <p className="text-sm text-muted-foreground">Set system-wide alerts and communication defaults.</p>
-            <Button size="sm" variant="outline" className="mt-3">Adjust Notifications</Button>
-          </DashboardCard>
         </div>
       </div>
     </Layout>
