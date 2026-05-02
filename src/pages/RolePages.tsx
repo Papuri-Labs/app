@@ -60,10 +60,13 @@ import {
   ChevronDown,
   RefreshCw,
   Search, Hash, Info, Lock,
-  ArrowRight, AlertTriangle, Loader2
+  ArrowRight, AlertTriangle, Loader2,
+  MessageSquareHeart, AlertCircle, FileDown, FileDown as DownloadIcon
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, startOfDay, endOfDay, parseISO, subDays } from "date-fns";
 import { useQuery, useMutation, useAction } from "convex/react";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { ImageUpload } from "@/components/ImageUpload";
@@ -3218,6 +3221,151 @@ export function ReportsPage() {
   const dayOfWeek = new Date(attendanceDate + "T00:00:00").toLocaleDateString('en-US', { weekday: 'long' });
   const servicesForDate = services.filter(s => s.day === dayOfWeek);
 
+  const [prayerStartDate, setPrayerStartDate] = useState(format(subDays(new Date(), 30), "yyyy-MM-dd"));
+  const [prayerEndDate, setPrayerEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [ftStartDate, setFtStartDate] = useState(format(subDays(new Date(), 30), "yyyy-MM-dd"));
+  const [ftEndDate, setFtEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  
+  const prayerRequests = useQuery(api.prayer_requests.list, isLeaderUser ? {} : "skip") || [];
+  const logPdfDownload = useMutation(api.pdf_logs.logDownload);
+  const prayerLogs = useQuery(api.pdf_logs.checkLogs, { type: "prayer_requests", todayStart: startOfDay(new Date()).getTime() });
+  const firstTimerLogs = useQuery(api.pdf_logs.checkLogs, { type: "first_timers", todayStart: startOfDay(new Date()).getTime() });
+  
+  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
+  const [pendingDownload, setPendingDownload] = useState<{ type: "prayer_requests" | "first_timers", count: number } | null>(null);
+
+  const prayedRequests = prayerRequests.filter(r => r.status === "Prayed" && !r.isFirstTimer && r.category !== "First Timer");
+  const firstTimerRequests = prayerRequests.filter(r => r.isFirstTimer || r.category === "First Timer");
+
+  const currentPrayerCount = useMemo(() => {
+    return prayedRequests.filter(req => {
+      const s = startOfDay(parseISO(prayerStartDate)).getTime();
+      const e = endOfDay(parseISO(prayerEndDate)).getTime();
+      return req.createdAt >= s && req.createdAt <= e;
+    }).length;
+  }, [prayerStartDate, prayerEndDate, prayedRequests]);
+
+  const currentFirstTimerCount = useMemo(() => {
+    return firstTimerRequests.filter(r => r.status === "Prayed").filter(req => {
+      const s = startOfDay(parseISO(ftStartDate)).getTime();
+      const e = endOfDay(parseISO(ftEndDate)).getTime();
+      return req.createdAt >= s && req.createdAt <= e;
+    }).length;
+  }, [ftStartDate, ftEndDate, firstTimerRequests]);
+
+  const existingPrayerLog = useMemo(() => {
+    if (prayerLogs === undefined) return undefined;
+    return prayerLogs.find(log => 
+      log.startDate === prayerStartDate && 
+      log.endDate === prayerEndDate && 
+      log.itemCount === currentPrayerCount
+    ) || null;
+  }, [prayerLogs, prayerStartDate, prayerEndDate, currentPrayerCount]);
+
+  const existingFirstTimerLog = useMemo(() => {
+    if (firstTimerLogs === undefined) return undefined;
+    return firstTimerLogs.find(log => 
+      log.startDate === ftStartDate && 
+      log.endDate === ftEndDate && 
+      log.itemCount === currentFirstTimerCount
+    ) || null;
+  }, [firstTimerLogs, ftStartDate, ftEndDate, currentFirstTimerCount]);
+
+  const handleDownloadPrayerPDF = async (force: boolean = false) => {
+    const start = startOfDay(parseISO(prayerStartDate)).getTime();
+    const end = endOfDay(parseISO(prayerEndDate)).getTime();
+    
+    const filteredRequests = prayedRequests.filter(req => {
+      return req.createdAt >= start && req.createdAt <= end;
+    });
+
+    if (filteredRequests.length === 0) {
+      toast.error("No requests found in the selected date range");
+      return;
+    }
+
+    if (!force && existingPrayerLog) {
+      setPendingDownload({ type: "prayer_requests", count: filteredRequests.length });
+      setIsDuplicateModalOpen(true);
+      return;
+    }
+
+    const doc = new jsPDF();
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(24);
+    doc.setTextColor(33, 33, 33);
+    doc.text("Prayer Requests Report", 14, 22);
+    
+    doc.setLineWidth(0.7);
+    doc.line(14, 26, 196, 26);
+
+    const categorized: Record<string, any[]> = {};
+    filteredRequests.forEach(req => {
+      const cat = req.category || "Others";
+      if (!categorized[cat]) categorized[cat] = [];
+      categorized[cat].push(req);
+    });
+
+    let yPos = 40;
+    Object.keys(categorized).forEach((category) => {
+      if (yPos > 260) { doc.addPage(); yPos = 20; }
+      doc.setFontSize(14); doc.setTextColor(0); doc.setFont("helvetica", "bold");
+      doc.text(category, 14, yPos);
+      yPos += 2;
+      
+      autoTable(doc, {
+        startY: yPos,
+        body: categorized[category].map(req => [`• ${req.name} - `, `${req.request}`]),
+        theme: 'plain',
+        styles: { fontSize: 10, cellPadding: { top: 0.5, bottom: 0.5, left: 1, right: 1 }, textColor: 50, valign: 'top' },
+        columnStyles: { 0: { fontStyle: 'bold', cellWidth: 'wrap', paddingRight: 0 }, 1: { fontStyle: 'normal', paddingLeft: 2 } },
+        margin: { left: 16 },
+        tableWidth: 'wrap',
+        didDrawPage: (data) => { yPos = data.cursor ? data.cursor.y : yPos; }
+      });
+      yPos = (doc as any).lastAutoTable.finalY + 10;
+    });
+
+    doc.save(`prayer_requests_${format(new Date(), "yyyy-MM-dd")}.pdf`);
+    await logPdfDownload({ type: "prayer_requests", startDate: prayerStartDate, endDate: prayerEndDate, itemCount: filteredRequests.length });
+  };
+
+  const handleDownloadFirstTimersPDF = async (force: boolean = false) => {
+    const start = startOfDay(parseISO(ftStartDate)).getTime();
+    const end = endOfDay(parseISO(ftEndDate)).getTime();
+    
+    const filtered = firstTimerRequests.filter(req => {
+      return req.status === "Prayed" && req.createdAt >= start && req.createdAt <= end;
+    });
+
+    if (filtered.length === 0) {
+      toast.error("No acknowledged first timers found in the selected date range");
+      return;
+    }
+
+    if (!force && existingFirstTimerLog) {
+      setPendingDownload({ type: "first_timers", count: filtered.length });
+      setIsDuplicateModalOpen(true);
+      return;
+    }
+
+    const doc = new jsPDF();
+    doc.setFont("helvetica", "bold"); doc.setFontSize(24); doc.setTextColor(33, 33, 33);
+    doc.text("First Timer Report", 14, 22);
+    doc.setLineWidth(0.7); doc.line(14, 26, 196, 26);
+
+    autoTable(doc, {
+      startY: 40,
+      head: [['Date', 'Name', 'Message/Details']],
+      body: filtered.map(req => [format(new Date(req.createdAt), "MMM d"), req.name, req.request]),
+      styles: { fontSize: 10 },
+      headStyles: { fillStyle: 'DF', fillColor: [99, 102, 241] }
+    });
+
+    doc.save(`first_timers_${format(new Date(), "yyyy-MM-dd")}.pdf`);
+    await logPdfDownload({ type: "first_timers", startDate: ftStartDate, endDate: ftEndDate, itemCount: filtered.length });
+  };
+
   const handleExportAttendance = () => {
     if (attendanceFormat === "csv") {
       // CSV Export logic
@@ -3534,7 +3682,144 @@ export function ReportsPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Community Reports Section */}
+        <div className="mt-8 space-y-4">
+          <h2 className="text-xl font-bold text-foreground">Community Reports</h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card className="glass-strong border-0 rounded-2xl group hover:ring-1 ring-primary/20 transition-all">
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <MessageSquareHeart className="h-6 w-6 text-primary" />
+                  </div>
+                </div>
+                <h3 className="text-lg font-bold mb-1">Prayer Requests</h3>
+                <p className="text-sm text-muted-foreground mb-4">PDF report of all acknowledged prayer requests for the selected date range.</p>
+                
+                <div className="flex items-center gap-3 bg-background/50 p-1.5 rounded-xl border border-border/40 shadow-sm mb-6">
+                  <div className="flex items-center gap-2 px-2 flex-1">
+                    <Label htmlFor="prayer-start" className="text-[10px] uppercase font-bold text-muted-foreground whitespace-nowrap">From</Label>
+                    <Input
+                      id="prayer-start"
+                      type="date"
+                      value={prayerStartDate}
+                      onChange={(e) => setPrayerStartDate(e.target.value)}
+                      className="h-8 text-[11px] bg-transparent border-none focus-visible:ring-0 p-0"
+                    />
+                  </div>
+                  <div className="w-px h-4 bg-border/60" />
+                  <div className="flex items-center gap-2 px-2 flex-1">
+                    <Label htmlFor="prayer-end" className="text-[10px] uppercase font-bold text-muted-foreground whitespace-nowrap">To</Label>
+                    <Input
+                      id="prayer-end"
+                      type="date"
+                      value={prayerEndDate}
+                      onChange={(e) => setPrayerEndDate(e.target.value)}
+                      className="h-8 text-[11px] bg-transparent border-none focus-visible:ring-0 p-0"
+                    />
+                  </div>
+                </div>
+
+                <Button 
+                  className="w-full gap-2 rounded-xl h-11 font-bold"
+                  onClick={() => handleDownloadPrayerPDF()}
+                  disabled={prayedRequests.length === 0 || existingPrayerLog === undefined}
+                >
+                  {existingPrayerLog === undefined ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileDown className="h-4 w-4" />
+                  )}
+                  {existingPrayerLog === undefined ? "Checking..." : "Download PDF Report"}
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="glass-strong border-0 rounded-2xl group hover:ring-1 ring-primary/20 transition-all">
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <UserPlus className="h-6 w-6 text-primary" />
+                  </div>
+                </div>
+                <h3 className="text-lg font-bold mb-1">First Timers</h3>
+                <p className="text-sm text-muted-foreground mb-4">PDF report identifying all first-time visitors who have been acknowledged.</p>
+                
+                <div className="flex items-center gap-3 bg-background/50 p-1.5 rounded-xl border border-border/40 shadow-sm mb-6">
+                  <div className="flex items-center gap-2 px-2 flex-1">
+                    <Label htmlFor="ft-start" className="text-[10px] uppercase font-bold text-muted-foreground whitespace-nowrap">From</Label>
+                    <Input
+                      id="ft-start"
+                      type="date"
+                      value={ftStartDate}
+                      onChange={(e) => setFtStartDate(e.target.value)}
+                      className="h-8 text-[11px] bg-transparent border-none focus-visible:ring-0 p-0"
+                    />
+                  </div>
+                  <div className="w-px h-4 bg-border/60" />
+                  <div className="flex items-center gap-2 px-2 flex-1">
+                    <Label htmlFor="ft-end" className="text-[10px] uppercase font-bold text-muted-foreground whitespace-nowrap">To</Label>
+                    <Input
+                      id="ft-end"
+                      type="date"
+                      value={ftEndDate}
+                      onChange={(e) => setFtEndDate(e.target.value)}
+                      className="h-8 text-[11px] bg-transparent border-none focus-visible:ring-0 p-0"
+                    />
+                  </div>
+                </div>
+
+                <Button 
+                  className="w-full gap-2 rounded-xl h-11 font-bold"
+                  onClick={() => handleDownloadFirstTimersPDF()}
+                  disabled={firstTimerRequests.length === 0 || existingFirstTimerLog === undefined}
+                >
+                  {existingFirstTimerLog === undefined ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileDown className="h-4 w-4" />
+                  )}
+                  {existingFirstTimerLog === undefined ? "Checking..." : "Download PDF Report"}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
+
+      <Dialog open={isDuplicateModalOpen} onOpenChange={setIsDuplicateModalOpen}>
+        <DialogContent className="sm:max-w-[400px] rounded-3xl p-6">
+          <DialogHeader>
+            <div className="h-12 w-12 rounded-full bg-amber-500/10 flex items-center justify-center mb-4">
+              <AlertCircle className="h-6 w-6 text-amber-500" />
+            </div>
+            <DialogTitle className="text-xl font-bold">Duplicate Download?</DialogTitle>
+            <p className="text-sm text-muted-foreground pt-2">
+              The PDF report for the period from <span className="font-bold text-foreground">{pendingDownload?.type === "prayer_requests" ? prayerStartDate : ftStartDate}</span> to <span className="font-bold text-foreground">{pendingDownload?.type === "prayer_requests" ? prayerEndDate : ftEndDate}</span> was already generated by <span className="font-bold text-primary">{pendingDownload?.type === "prayer_requests" ? existingPrayerLog?.userName : existingFirstTimerLog?.userName}</span> today.
+            </p>
+          </DialogHeader>
+          <DialogFooter className="mt-6 gap-2">
+            <Button variant="outline" onClick={() => setIsDuplicateModalOpen(false)} className="rounded-xl flex-1">
+              Exit
+            </Button>
+            <Button 
+              onClick={async () => {
+                setIsDuplicateModalOpen(false);
+                if (pendingDownload?.type === "prayer_requests") {
+                  await handleDownloadPrayerPDF(true);
+                } else {
+                  await handleDownloadFirstTimersPDF(true);
+                }
+              }}
+              className="rounded-xl flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              Print
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }

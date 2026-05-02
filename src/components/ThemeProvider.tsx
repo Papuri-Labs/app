@@ -86,7 +86,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   // Helper to determine if a color is light or dark using perceived brightness (YIQ)
   const getContrastForeground = (color: string) => {
-    if (!color || !color.startsWith('#')) return "0 0% 100%";
+    if (!color) return "0 0% 100%";
+    
+    // Handle HSL string (e.g. "215 55% 42%")
+    const hslMatch = color.match(/(\d+)\s+(\d+)%\s+(\d+)%/);
+    if (hslMatch) {
+      const lightness = parseInt(hslMatch[3]);
+      // If lightness is > 65%, use dark text
+      return lightness > 65 ? "220 20% 14%" : "0 0% 100%";
+    }
+
+    if (!color.startsWith('#')) return "0 0% 100%";
     
     // Parse hex
     const r = parseInt(color.slice(1, 3), 16);
@@ -111,7 +121,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
     if (primaryHsl) {
       const hslVal = primaryHsl.toString();
-      const primaryFg = getContrastForeground(primaryStr && primaryStr.startsWith('#') ? primaryStr : '#6366f1');
+      const primaryFg = getContrastForeground(primaryStr || '#6366f1');
       root.style.setProperty('--primary', hslVal);
       root.style.setProperty('--primary-foreground', primaryFg);
       root.style.setProperty('--sidebar-primary', hslVal);
@@ -127,7 +137,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
     if (accentHsl) {
       const hslVal = accentHsl.toString();
-      const accentFg = getContrastForeground(accentStr && accentStr.startsWith('#') ? accentStr : '#f59e0b');
+      const accentFg = getContrastForeground(accentStr || '#f59e0b');
       root.style.setProperty('--accent', hslVal);
       root.style.setProperty('--accent-foreground', accentFg);
       root.style.setProperty('--sidebar-accent', `${hslVal} / 0.05`);
