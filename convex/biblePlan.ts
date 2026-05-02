@@ -404,6 +404,7 @@ export const getPlanAssignments = query({
         status,
         currentStreak,
         lastRemindedAt: a.lastRemindedAt,
+        groupName: a.groupName,
       };
     }));
   },

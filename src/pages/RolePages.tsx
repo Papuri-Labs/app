@@ -17,7 +17,7 @@ import { BulletinDialog } from "@/components/BulletinDialog";
 import { AnnouncementDialog } from "@/components/AnnouncementDialog";
 import { EventDialog } from "@/components/EventDialog";
 import { Badge } from "@/components/ui/badge";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, UserRole } from "@/contexts/AuthContext";
 import { useViewMode } from "@/contexts/ViewModeContext";
 import { useMemo, useState, useEffect } from "react";
 import { useNavigate, Link, Navigate, useParams } from "react-router-dom";
@@ -117,8 +117,8 @@ import { roleBadgeStyles } from "@/lib/role-colors";
 
 export function NewcomerOnboardingPage() {
   const { user } = useAuth();
-  const onboardingSteps = useQuery(api.onboarding.listSteps) || [];
-  const userProgress = useQuery(api.onboarding.getUserProgress) || [];
+  const onboardingSteps = useQuery(api.onboarding.listSteps, {}) || [];
+  const userProgress = useQuery(api.onboarding.getUserProgress, {}) || [];
   const completeStepMutation = useMutation(api.onboarding.completeStep);
 
   const completedStepIds = new Set(userProgress.map((p: any) => p.stepId));
@@ -766,7 +766,7 @@ export function BulletinsPage() {
 }
 
 export function BibleReadingPage() {
-  const activePlansData = useQuery(api.biblePlan.getMyActivePlans);
+  const activePlansData = useQuery(api.biblePlan.getMyActivePlans, {});
   const markAsRead = useMutation(api.biblePlan.markDayComplete);
   const [isMarking, setIsMarking] = useState(false);
   const [reflectionModalDay, setReflectionModalDay] = useState<number | null>(null);
@@ -782,7 +782,7 @@ export function BibleReadingPage() {
     setIsMarking(true);
     try {
       await markAsRead({
-        assignmentId: activeReflectAssignmentId as any,
+        assignmentId: activeReflectAssignmentId as Id<"bible_reading_assignments">,
         dayNumber: reflectionModalDay,
         reflection: reflectionText.trim() === "" ? undefined : reflectionText.trim(),
         tracing: getTracing()
@@ -1401,8 +1401,8 @@ export function GivingPage() {
 export function MinistryStatsPage() {
   const { user } = useAuth();
   const ministryIds = user?.ministryIds ?? [];
-  const members = useQuery(api.users.getMemberDirectory) || [];
-  const events = useQuery(api.events.list) || [];
+  const members = useQuery(api.users.getMemberDirectory, {}) || [];
+  const events = useQuery(api.events.list, {}) || [];
 
   const ministryMembers = members.filter(m =>
     m.ministryIds?.some(id => ministryIds.includes(id))
@@ -1465,7 +1465,7 @@ export function ManageEventsPage() {
   const createEvent = useMutation(api.events.createEvent);
   const updateEvent = useMutation(api.events.updateEvent);
   const deleteEvent = useMutation(api.events.deleteEvent);
-  const ministries = useQuery(api.ministries.list) || [];
+  const ministries = useQuery(api.ministries.list, {}) || [];
 
   // State for new event - MUST be declared before any conditional returns
   const [showCreate, setShowCreate] = useState(false);
@@ -1580,11 +1580,11 @@ export function ManageBibleReadingPage() {
     return <Navigate to={`/${orgSlug}/dashboard`} replace />;
   }
 
-  const plans = useQuery(api.biblePlan.listPlans) || [];
-  const members = useQuery(api.users.getMemberDirectory) || [];
-  const ministries = useQuery(api.ministries.list) || [];
-  const cellGroups = useQuery(api.biblePlan.listCellGroups) || [];
-  const orgStats = useQuery(api.biblePlan.getOrganizationStats);
+  const plans = useQuery(api.biblePlan.listPlans, {}) || [];
+  const members = useQuery(api.users.getMemberDirectory, {}) || [];
+  const ministries = useQuery(api.ministries.list, {}) || [];
+  const cellGroups = useQuery(api.biblePlan.listCellGroups, {}) || [];
+  const orgStats = useQuery(api.biblePlan.getOrganizationStats, {});
 
   const createPlan = useMutation(api.biblePlan.createPlan);
   const assignPlan = useMutation(api.biblePlan.assignPlan);
@@ -1628,10 +1628,10 @@ export function ManageBibleReadingPage() {
   const [selectedGroupNameForMonitoring, setSelectedGroupNameForMonitoring] = useState<string | null>(null);
   
   const [remindingIds, setRemindingIds] = useState<string[]>([]);
-  const progressList = useQuery(api.biblePlan.getPlanAssignments, selectedPlanId ? { planId: selectedPlanId as any } : "skip") || [];
-  const groupStats = useQuery(api.biblePlan.getGroupProgress, (selectedPlanId && selectedGroupNameForMonitoring) ? { planId: selectedPlanId as any, groupName: selectedGroupNameForMonitoring } : "skip");
+  const progressList = useQuery(api.biblePlan.getPlanAssignments, selectedPlanId ? { planId: selectedPlanId as Id<"bible_reading_plans"> } : "skip") || [];
+  const groupStats = useQuery(api.biblePlan.getGroupProgress, (selectedPlanId && selectedGroupNameForMonitoring) ? { planId: selectedPlanId as Id<"bible_reading_plans">, groupName: selectedGroupNameForMonitoring } : "skip");
   
-  const modalAssignments = useQuery(api.biblePlan.getPlanAssignments, showAssignModal ? { planId: showAssignModal._id as any } : "skip") || [];
+  const modalAssignments = useQuery(api.biblePlan.getPlanAssignments, showAssignModal ? { planId: showAssignModal._id as Id<"bible_reading_plans"> } : "skip") || [];
   const assignedMemberIds = modalAssignments.map((a: any) => a.memberId);
 
   // Encouragement state
@@ -1639,14 +1639,14 @@ export function ManageBibleReadingPage() {
   const [encouragementDay, setEncouragementDay] = useState(1);
   const [encouragementText, setEncouragementText] = useState("");
   const [isPostingEncouragement, setIsPostingEncouragement] = useState(false);
-  const groupMessages = useQuery(api.biblePlan.listGroupMessages, showEncouragementModal ? { planId: showEncouragementModal.planId as any, groupName: showEncouragementModal.groupName } : "skip") || [];
+  const groupMessages = useQuery(api.biblePlan.listGroupMessages, showEncouragementModal ? { planId: showEncouragementModal.planId as Id<"bible_reading_plans">, groupName: showEncouragementModal.groupName } : "skip") || [];
 
   const handlePostEncouragement = async () => {
     if (!showEncouragementModal || !encouragementText) return;
     setIsPostingEncouragement(true);
     try {
       await postEncouragement({
-        planId: showEncouragementModal.planId as any,
+        planId: showEncouragementModal.planId as Id<"bible_reading_plans">,
         groupName: showEncouragementModal.groupName,
         dayNumber: encouragementDay,
         message: encouragementText,
@@ -1668,7 +1668,7 @@ export function ManageBibleReadingPage() {
   const handleRemindMember = async (assignmentId: string) => {
     setRemindingIds(prev => [...prev, assignmentId]);
     try {
-      await sendReminder({ assignmentId });
+      await sendReminder({ assignmentId: assignmentId as Id<"bible_reading_assignments"> });
       toast.success("Reminder sent successfully!");
     } catch (e: any) {
       toast.error("Failed to send reminder: " + e.message);
@@ -3195,9 +3195,9 @@ export function FollowUpsPage() {
 
 export function ReportsPage() {
   const { user } = useAuth();
-  const members = useQuery(api.users.getMemberDirectory) || [];
-  const events = useQuery(api.events.list) || [];
-  const services = useQuery(api.services.list) || [];
+  const members = useQuery(api.users.getMemberDirectory, {}) || [];
+  const events = useQuery(api.events.list, {}) || [];
+  const services = useQuery(api.services.list, {}) || [];
   const [attendanceDate, setAttendanceDate] = useState(getLocalSysDate());
   const isLeaderUser = user?.role === "leader" || user?.role === "admin";
   const dailyAttendance = useQuery(api.attendance.getDailyAttendance, isLeaderUser ? { date: attendanceDate } : "skip") || [];
@@ -3318,7 +3318,7 @@ export function ReportsPage() {
         body: categorized[category].map(req => [`• ${req.name} - `, `${req.request}`]),
         theme: 'plain',
         styles: { fontSize: 10, cellPadding: { top: 0.5, bottom: 0.5, left: 1, right: 1 }, textColor: 50, valign: 'top' },
-        columnStyles: { 0: { fontStyle: 'bold', cellWidth: 'wrap', paddingRight: 0 }, 1: { fontStyle: 'normal', paddingLeft: 2 } },
+        columnStyles: { 0: { fontStyle: 'bold', cellWidth: 'wrap' }, 1: { fontStyle: 'normal' } },
         margin: { left: 16 },
         tableWidth: 'wrap',
         didDrawPage: (data) => { yPos = data.cursor ? data.cursor.y : yPos; }
@@ -3359,7 +3359,7 @@ export function ReportsPage() {
       head: [['Date', 'Name', 'Message/Details']],
       body: filtered.map(req => [format(new Date(req.createdAt), "MMM d"), req.name, req.request]),
       styles: { fontSize: 10 },
-      headStyles: { fillStyle: 'DF', fillColor: [99, 102, 241] }
+      headStyles: { fillColor: [99, 102, 241] }
     });
 
     doc.save(`first_timers_${format(new Date(), "yyyy-MM-dd")}.pdf`);
@@ -3839,10 +3839,10 @@ export function AttendancePage() {
     isLeader ? {} : "skip"
   ) || [];
 
-  const members = useQuery(api.users.getMemberDirectory) || [];
+  const members = useQuery(api.users.getMemberDirectory, {}) || [];
   const markAttendance = useMutation(api.attendance.mark);
-  const events = useQuery(api.events.list) || [];
-  const services = useQuery(api.services.list) || [];
+  const events = useQuery(api.events.list, {}) || [];
+  const services = useQuery(api.services.list, {}) || [];
 
   // State management
   const [selectedDate, setSelectedDate] = useState(getLocalSysDate());
@@ -4762,7 +4762,7 @@ export function SettingsPage() {
   const { user } = useAuth();
   const organization = useQuery(api.organizations.get, user?.organizationId ? { organizationId: user.organizationId as Id<"organizations"> } : "skip");
   const updateOrg = useMutation(api.organizations.update);
-  const backendSettings = useQuery(api.settings.get);
+  const backendSettings = useQuery(api.settings.get, {});
   const updateSettings = useMutation(api.settings.upsert);
 
   const [edits, setEdits] = useState<any>({});
@@ -4825,7 +4825,7 @@ export function SettingsPage() {
     }).catch(console.error);
   };
 
-  const handleOrgUpdate = (updates: { name?: string, slug?: string }) => {
+  const handleOrgUpdate = (updates: { name?: string, slug?: string, joinCode?: string }) => {
     if (updates.name !== undefined) setOrgNameEdit(updates.name);
     if (updates.slug !== undefined) setOrgSlugEdit(updates.slug);
 
@@ -5578,7 +5578,7 @@ export function ScheduleMaintenancePage() {
   const services = useQuery(api.services.list, { orgSlug }) || [];
   const addServiceMutation = useMutation(api.services.create);
   const updateServiceMutation = useMutation(api.services.update);
-  const deleteServiceMutation = useMutation(api.services.deleteService);
+  const deleteServiceMutation = useMutation(api.services.remove);
 
   const [name, setName] = useState("");
   const [day, setDay] = useState("Sunday");
