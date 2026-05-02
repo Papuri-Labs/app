@@ -64,7 +64,15 @@ import {
   FileUp,
   FileIcon,
   Download,
-  AlertCircle
+  AlertCircle,
+  Search,
+  Loader2,
+  AlertTriangle,
+  MessageSquareHeart,
+  FileDown,
+  RefreshCw,
+  Lock as LockIcon,
+  Hash
 } from "lucide-react";
 import { format, startOfDay, endOfDay, parseISO, subDays } from "date-fns";
 import { useQuery, useMutation, useAction } from "convex/react";
@@ -5010,7 +5018,7 @@ export function SettingsPage() {
 
               <div className="pt-4 border-t space-y-4">
                 <div className="flex items-center gap-2 mb-1">
-                  <Lock className="h-4 w-4 text-primary" />
+                  <LockIcon className="h-4 w-4 text-primary" />
                   <Label className="font-bold">Church Access Control</Label>
                 </div>
                 <div className="space-y-2">
