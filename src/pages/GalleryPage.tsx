@@ -42,7 +42,7 @@ import { useParams } from "react-router-dom";
 import { Id } from "../../convex/_generated/dataModel";
 import { ImageUpload } from "@/components/ImageUpload";
 import { useViewMode } from "@/contexts/ViewModeContext";
-import { PageHeader } from "./RolePages";
+import { PageHeader } from "@/components/PageHeader";
 
 export function GalleryPage() {
     const { orgSlug } = useParams<{ orgSlug: string }>();

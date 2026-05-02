@@ -23,6 +23,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { BIBLE_TRANSLATIONS, fetchChapter } from "@/lib/bible";
+import { useEffect } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 
 // Fetch Bible Reading data (Moved inside component)
 
@@ -41,6 +45,10 @@ export default function MemberDashboard() {
 
   const [selectedGiving, setSelectedGiving] = useState<any>(null);
   const givingOptions = useQuery(api.giving_options.list) || [];
+
+  const [translation, setTranslation] = useState("tgl_ulb");
+  const [bibleText, setBibleText] = useState<any>(null);
+  const [isLoadingVerse, setIsLoadingVerse] = useState(false);
 
   // Real data fetching
   const events = useQuery(api.events.list) || [];
@@ -103,6 +111,53 @@ export default function MemberDashboard() {
       setConfirmStatus(null);
     }
   };
+
+  const todayReading = activePlanData ? activePlanData.readings.find((r: any) => {
+    const start = new Date(activePlanData.assignment.startDate);
+    const now = new Date();
+    start.setHours(0, 0, 0, 0);
+    now.setHours(0, 0, 0, 0);
+    const diffDays = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    return r.dayNumber === (diffDays + 1);
+  }) : null;
+
+  useEffect(() => {
+    async function loadVerse() {
+      if (todayReading?.book && todayReading?.chapter) {
+        setIsLoadingVerse(true);
+        const data = await fetchChapter(translation, todayReading.book, todayReading.chapter);
+        if (data && data.chapter && data.chapter.content) {
+          // The API returns a chapter object containing a content array
+          const verses = data.chapter.content
+            .filter((c: any) => c.type === "verse")
+            .map((v: any) => ({
+              number: v.number,
+              // v.content is an array of strings and objects (notes)
+              content: v.content
+                .filter((item: any) => typeof item === "string")
+                .join("")
+            }));
+
+          if (todayReading.verseStart) {
+            const end = todayReading.verseEnd || todayReading.verseStart;
+            const filtered = verses.filter((v: any) => {
+              const vNum = parseInt(v.number);
+              return vNum >= todayReading.verseStart && vNum <= end;
+            });
+            setBibleText(filtered);
+          } else {
+            setBibleText(verses);
+          }
+        } else {
+          setBibleText(null);
+        }
+        setIsLoadingVerse(false);
+      } else {
+        setBibleText(null);
+      }
+    }
+    loadVerse();
+  }, [todayReading?.book, todayReading?.chapter, todayReading?.verseStart, todayReading?.verseEnd, translation]);
 
   return (
     <Layout>
@@ -266,43 +321,75 @@ export default function MemberDashboard() {
             icon={<BookOpen className="h-5 w-5 text-primary" />} 
             gradient="gradient-member"
           >
-            <div className="p-4 rounded-xl glass-subtle">
-              <p className="text-xs text-muted-foreground mb-1">Today's Reading</p>
-              <p className="text-sm font-medium">
-                {activePlanData ? (
-                  activePlanData.readings.find((r: any) => {
-                    const start = new Date(activePlanData.assignment.startDate);
-                    const now = new Date();
-                    start.setHours(0, 0, 0, 0);
-                    now.setHours(0, 0, 0, 0);
-                    const diffDays = Math.ceil(Math.abs(now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-                    return r.dayNumber === (diffDays + 1);
-                  })?.scripture || "All caught up for today!"
+            <div className="p-4 rounded-xl glass-subtle border border-primary/10">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex flex-col gap-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-primary">Today's Reading</p>
+                  <p className="text-xs font-bold text-foreground/80">
+                    {todayReading?.bookName} {todayReading?.chapter}{todayReading?.verseStart ? `:${todayReading?.verseStart}${todayReading?.verseEnd ? `-${todayReading?.verseEnd}` : ""}` : ""}
+                  </p>
+                </div>
+                <Select value={translation} onValueChange={setTranslation}>
+                  <SelectTrigger className="h-6 w-[110px] text-[9px] bg-background/30 border-primary/20">
+                    <SelectValue placeholder="Version" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BIBLE_TRANSLATIONS.map(t => (
+                      <SelectItem key={t.id} value={t.id} className="text-xs">{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="min-h-[60px] flex flex-col justify-center">
+                {isLoadingVerse ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-primary/40" />
+                  </div>
+                ) : bibleText ? (
+                  <div className="space-y-2">
+                    <div className="text-sm leading-relaxed text-foreground/90 italic">
+                      {bibleText.map((v: any, i: number) => (
+                        <span key={i} className="mr-1">
+                          <sup className="text-[10px] font-bold text-primary mr-0.5">{v.number}</sup>
+                          {v.content}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : todayReading ? (
+                  <p className="text-sm font-bold text-primary italic">
+                    {todayReading.scripture}
+                  </p>
                 ) : (
-                  "No reading assigned yet."
+                  <p className="text-sm font-medium text-muted-foreground italic">
+                    {activePlanData ? "All caught up for today!" : "No reading assigned yet."}
+                  </p>
                 )}
-              </p>
+              </div>
+
               {activePlanData && (
-                <div className="mt-3 space-y-1">
-                  <div className="flex justify-between items-center text-[10px] text-muted-foreground">
-                    <span>Progress</span>
+                <div className="mt-4 pt-4 border-t border-primary/5 space-y-1">
+                  <div className="flex justify-between items-center text-[10px] text-muted-foreground font-bold">
+                    <span className="uppercase tracking-widest">Progress</span>
                     <span>{Math.round((activePlanData.progress.length / activePlanData.plan.duration) * 100)}%</span>
                   </div>
-                  <Progress value={(activePlanData.progress.length / activePlanData.plan.duration) * 100} className="h-1" />
+                  <Progress value={(activePlanData.progress.length / activePlanData.plan.duration) * 100} className="h-1 bg-primary/10" />
                 </div>
               )}
             </div>
-            <div className="mt-3 flex gap-2">
+            <div className="mt-3 flex flex-col sm:flex-row gap-2">
               {activePlanData && (
                 <Button 
                   size="sm" 
+                  className="flex-1 bg-primary text-white hover:bg-primary/90 shadow-sm"
                   disabled={isMarking || activePlanData.progress.includes(Math.ceil(Math.abs(new Date().setHours(0,0,0,0) - new Date(activePlanData.assignment.startDate).setHours(0,0,0,0)) / (1000 * 60 * 60 * 24)) + 1)}
                   onClick={async () => {
                     const start = new Date(activePlanData.assignment.startDate);
                     const now = new Date();
                     start.setHours(0, 0, 0, 0);
                     now.setHours(0, 0, 0, 0);
-                    const todayDay = Math.ceil(Math.abs(now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                    const todayDay = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
                     
                     setIsMarking(true);
                     try {
@@ -319,12 +406,14 @@ export default function MemberDashboard() {
                     }
                   }}
                 >
-                  {isMarking ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : null}
+                  {isMarking ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Check className="h-3.5 w-3.5 mr-2" />}
                   Mark as Read
                 </Button>
               )}
-              <Link to={`/${orgSlug}/bible-reading`} className={activePlanData ? "" : "w-full"}>
-                <Button variant="outline" size="sm" className="w-full">View Full Plan</Button>
+              <Link to={`/${orgSlug}/bible-reading`} className={activePlanData ? "flex-1" : "w-full"}>
+                <Button variant="outline" size="sm" className="w-full h-9">
+                  <BookOpen className="h-3.5 w-3.5 mr-2" /> View Full Plan
+                </Button>
               </Link>
             </div>
           </DashboardCard>

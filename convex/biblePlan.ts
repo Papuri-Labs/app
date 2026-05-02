@@ -34,6 +34,11 @@ export const createPlan = mutation({
     readings: v.array(v.object({
       dayNumber: v.number(),
       scripture: v.string(),
+      book: v.optional(v.string()),
+      bookName: v.optional(v.string()),
+      chapter: v.optional(v.number()),
+      verseStart: v.optional(v.number()),
+      verseEnd: v.optional(v.number()),
       notes: v.optional(v.string()),
     })),
     tracing: v.any(), 
@@ -56,6 +61,11 @@ export const createPlan = mutation({
         planId,
         dayNumber: reading.dayNumber,
         scripture: reading.scripture,
+        book: reading.book,
+        bookName: reading.bookName,
+        chapter: reading.chapter,
+        verseStart: reading.verseStart,
+        verseEnd: reading.verseEnd,
         notes: reading.notes,
       });
     }
@@ -73,6 +83,11 @@ export const updatePlan = mutation({
     readings: v.array(v.object({
       dayNumber: v.number(),
       scripture: v.string(),
+      book: v.optional(v.string()),
+      bookName: v.optional(v.string()),
+      chapter: v.optional(v.number()),
+      verseStart: v.optional(v.number()),
+      verseEnd: v.optional(v.number()),
       notes: v.optional(v.string()),
     })),
     tracing: v.any(),
@@ -109,6 +124,11 @@ export const updatePlan = mutation({
       if (existing) {
         await ctx.db.patch(existing._id, {
           scripture: reading.scripture,
+          book: reading.book,
+          bookName: reading.bookName,
+          chapter: reading.chapter,
+          verseStart: reading.verseStart,
+          verseEnd: reading.verseEnd,
           notes: reading.notes,
         });
       } else if (reading.dayNumber <= args.duration) {
@@ -116,6 +136,11 @@ export const updatePlan = mutation({
           planId: args.planId,
           dayNumber: reading.dayNumber,
           scripture: reading.scripture,
+          book: reading.book,
+          bookName: reading.bookName,
+          chapter: reading.chapter,
+          verseStart: reading.verseStart,
+          verseEnd: reading.verseEnd,
           notes: reading.notes,
         });
       }
