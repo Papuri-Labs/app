@@ -161,6 +161,8 @@ export default defineSchema({
     title: v.string(),
     description: v.string(),
     order: v.number(),
+    linkUrl: v.optional(v.string()),
+    fileStorageId: v.optional(v.id("_storage")),
   })
     .index("by_organization", ["organizationId"])
     .index("by_order", ["order"])
