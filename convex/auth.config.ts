@@ -1,7 +1,7 @@
 export default {
     providers: [
         {
-            domain: "https://champion-cicada-94.clerk.accounts.dev",
+            domain: "https://clerk.magi.ph",
             applicationID: "convex",
         },
     ],

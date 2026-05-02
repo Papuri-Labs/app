@@ -61,14 +61,19 @@ export const listPublic = query({
 export const getJoinCodeRequirement = query({
     args: { slug: v.string() },
     handler: async (ctx, args) => {
-        const org = await ctx.db
-            .query("organizations")
-            .withIndex("by_slug", (q) => q.eq("slug", args.slug))
-            .first();
-        return { 
-            isRequired: !!org?.joinCode,
-            orgName: org?.name || ""
-        };
+        try {
+            const org = await ctx.db
+                .query("organizations")
+                .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+                .first();
+            return { 
+                isRequired: !!org?.joinCode,
+                orgName: org?.name || ""
+            };
+        } catch (error) {
+            console.error("Error fetching join code requirement:", error);
+            return { isRequired: false, orgName: "" };
+        }
     },
 });
 
