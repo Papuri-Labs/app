@@ -58,10 +58,13 @@ import {
   TrendingUp,
   ChevronUp,
   ChevronDown,
-  RefreshCw,
-  Search, Hash, Info, Lock,
-  ArrowRight, AlertTriangle, Loader2,
-  MessageSquareHeart, AlertCircle, FileDown, FileDown as DownloadIcon
+  ChevronRight,
+  ExternalLink,
+  Link as LinkIcon,
+  FileUp,
+  FileIcon,
+  Download,
+  AlertCircle
 } from "lucide-react";
 import { format, startOfDay, endOfDay, parseISO, subDays } from "date-fns";
 import { useQuery, useMutation, useAction } from "convex/react";
@@ -137,10 +140,32 @@ export function NewcomerOnboardingPage() {
   const progress = onboardingSteps.length ? (completedCount / onboardingSteps.length) * 100 : 0;
 
   const handleCompleteStep = (stepId: any, canComplete: boolean) => {
-    if (!user || !canComplete) return;
-    completeStepMutation({ stepId }).catch(err => {
-      console.error("Failed to complete step:", err.message || err);
-    });
+    if (!user) {
+      toast.error("You must be logged in to complete steps.");
+      return;
+    }
+    if (!canComplete) {
+      toast.error("Please complete previous steps first.");
+      return;
+    }
+
+    completeStepMutation({ stepId })
+      .then((result) => {
+        if (result === null) {
+          toast.success("Step marked as incomplete");
+        } else {
+          toast.success("Step completed!");
+        }
+      })
+      .catch(err => {
+        console.error("Failed to complete step:", err.message || err);
+        toast.error(err.message || "Failed to update step status");
+      });
+  };
+
+  const handleOpenResource = (e: React.MouseEvent, url?: string) => {
+    e.stopPropagation();
+    if (url) window.open(url, '_blank');
   };
 
   return (
@@ -179,13 +204,40 @@ export function NewcomerOnboardingPage() {
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-primary min-w-[3rem]">Step {step.number}</span>
                         <CheckCircle2 className={`h-5 w-5 transition-colors ${step.done ? 'text-success' :
-                          step.canComplete ? 'text-border' :
+                          step.canComplete ? 'text-primary' :
                             'text-muted-foreground/30'
                           }`} />
                       </div>
                       <div className="flex-1">
                         <p className={`font-medium mb-1 ${step.done ? 'line-through text-muted-foreground' : ''}`}>{step.title}</p>
-                        <p className="text-sm text-muted-foreground">{step.description}</p>
+                        <p className="text-sm text-muted-foreground mb-2">{step.description}</p>
+                        
+                        {(step.linkUrl || step.fileUrl) && (
+                          <div className="flex gap-2 mt-2">
+                            {step.linkUrl && (
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className="h-7 gap-1.5 text-[10px]"
+                                onClick={(e) => handleOpenResource(e, step.linkUrl)}
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                                Visit Link
+                              </Button>
+                            )}
+                            {step.fileUrl && (
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className="h-7 gap-1.5 text-[10px]"
+                                onClick={(e) => handleOpenResource(e, step.fileUrl)}
+                              >
+                                <Download className="h-3 w-3" />
+                                View PDF
+                              </Button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -5370,18 +5422,66 @@ export function OnboardingMaintenancePage() {
 
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
+  const [fileId, setFileId] = useState<Id<"_storage"> | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const generateUploadUrl = useMutation(api.onboarding.generateUploadUrl);
+
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDesc, setEditDesc] = useState("");
+  const [editLinkUrl, setEditLinkUrl] = useState("");
+  const [editFileId, setEditFileId] = useState<Id<"_storage"> | null>(null);
+
+  const handleFileUpload = async (file: File, isEdit: boolean = false) => {
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) { // 10MB limit
+      toast.error("File is too large. Maximum size is 10MB.");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const postUrl = await generateUploadUrl();
+      const result = await fetch(postUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      const { storageId } = await result.json();
+      
+      if (isEdit) setEditFileId(storageId);
+      else setFileId(storageId);
+      
+      toast.success("File uploaded successfully");
+    } catch (err) {
+      console.error("Upload failed:", err);
+      toast.error("Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleAddStep = () => {
     if (!title.trim()) return;
-    addStepMutation({ title: title.trim(), description: desc.trim(), orgSlug })
+    addStepMutation({ 
+      title: title.trim(), 
+      description: desc.trim(), 
+      linkUrl: linkUrl.trim() || undefined,
+      fileStorageId: fileId || undefined,
+      orgSlug 
+    })
       .then(() => {
         setTitle("");
         setDesc("");
+        setLinkUrl("");
+        setFileId(null);
+        toast.success("Onboarding step added");
       })
-      .catch((err) => console.error("Failed to add step:", err));
+      .catch((err) => {
+        console.error("Failed to add step:", err);
+        toast.error("Failed to add step");
+      });
   };
 
   const handleDeleteStep = (id: string) => {
@@ -5400,13 +5500,21 @@ export function OnboardingMaintenancePage() {
       stepId: editingId as any,
       title: editTitle.trim(),
       description: editDesc.trim(),
+      linkUrl: editLinkUrl.trim() || undefined,
+      fileStorageId: editFileId || undefined,
     })
       .then(() => {
         setEditingId(null);
         setEditTitle("");
         setEditDesc("");
+        setEditLinkUrl("");
+        setEditFileId(null);
+        toast.success("Changes saved");
       })
-      .catch(console.error);
+      .catch((err) => {
+        console.error(err);
+        toast.error("Failed to save changes");
+      });
   };
 
   const handleCancelEdit = () => {
@@ -5416,7 +5524,12 @@ export function OnboardingMaintenancePage() {
   };
 
   const handleMove = (stepId: string, direction: "up" | "down") => {
-    moveStepMutation({ stepId: stepId as any, direction }).catch(console.error);
+    moveStepMutation({ stepId: stepId as any, direction })
+      .then(() => toast.success(`Moved step ${direction}`))
+      .catch((err) => {
+        console.error(err);
+        toast.error("Failed to rearrange steps");
+      });
   };
 
   return (
@@ -5456,32 +5569,40 @@ export function OnboardingMaintenancePage() {
                           placeholder="Step description"
                           className="text-xs min-h-[60px]"
                         />
-                        <div className="flex flex-wrap gap-1">
-                          {/* Assuming 'm' refers to a member object with contact details. This context is not present in OnboardingMaintenancePage. */}
-                          {/* The following buttons are added based on the instruction, but 'm' is undefined here. */}
-                          {/* If this code was intended for a different component (e.g., a member list), 'm' would be the member object. */}
-                          {/* For now, they are added as requested, but will likely cause a runtime error due to 'm' being undefined. */}
-                          {/* To make this functional, 'm' would need to be passed as a prop or derived from context. */}
-                          {/* Example: {step.contactNumber && ( ... )} if steps had contactNumber */}
-                          {/* For demonstration, I'll use a placeholder 'm' if it were defined. */}
-                          {/* As 'm' is not defined, these buttons will not render or will cause an error. */}
-                          {/* If the intent was to add these to a different page, please specify. */}
-                          {/* For now, I'm inserting the code as literally as possible at the specified location. */}
-                          {/* {m.contactNumber && (
-                          <Button size="sm" variant="ghost" onClick={() => window.open(`tel:${m.contactNumber}`)}>
-                            Call
-                          </Button>
-                        )}
-                        {m.email && (
-                          <Button size="sm" variant="ghost" onClick={() => window.open(`mailto:${m.email}`)}>
-                            Email
-                          </Button>
-                        )}
-                        {m.contactNumber && (
-                          <Button size="sm" variant="ghost" onClick={() => window.open(`sms:${m.contactNumber}`)}>
-                            Message
-                          </Button>
-                        )} */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          <div className="relative">
+                            <LinkIcon className="absolute left-2 top-2.5 h-3 w-3 text-muted-foreground" />
+                            <Input
+                              value={editLinkUrl}
+                              onChange={(e) => setEditLinkUrl(e.target.value)}
+                              placeholder="External resource URL (optional)"
+                              className="text-[10px] pl-7"
+                            />
+                          </div>
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="w-full text-[10px] h-9 gap-1.5"
+                              onClick={() => document.getElementById(`edit-file-${step._id}`)?.click()}
+                              disabled={uploading}
+                            >
+                              <FileUp className="h-3 w-3" />
+                              {editFileId ? "Replace PDF" : "Attach PDF"}
+                            </Button>
+                            <input
+                              id={`edit-file-${step._id}`}
+                              type="file"
+                              accept=".pdf"
+                              className="hidden"
+                              onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0], true)}
+                            />
+                            {editFileId && (
+                              <Button size="sm" variant="ghost" className="h-9 w-9 p-0" onClick={() => setEditFileId(null)}>
+                                <Trash2 className="h-3 w-3 text-destructive" />
+                              </Button>
+                            )}
+                          </div>
                         </div>
                         <div className="flex gap-2 justify-end">
                           <Button size="sm" variant="ghost" onClick={handleCancelEdit}>
@@ -5499,6 +5620,20 @@ export function OnboardingMaintenancePage() {
                           <div className="flex-1">
                             <p className="text-sm font-medium">{step.title}</p>
                             <p className="text-xs text-muted-foreground">{step.description}</p>
+                            {(step.linkUrl || step.fileUrl) && (
+                              <div className="flex gap-2 mt-1.5">
+                                {step.linkUrl && (
+                                  <span className="flex items-center gap-1 text-[10px] text-primary bg-primary/5 px-1.5 py-0.5 rounded border border-primary/10">
+                                    <LinkIcon className="h-2.5 w-2.5" /> Link Attached
+                                  </span>
+                                )}
+                                {step.fileUrl && (
+                                  <span className="flex items-center gap-1 text-[10px] text-accent bg-accent/5 px-1.5 py-0.5 rounded border border-accent/10">
+                                    <FileIcon className="h-2.5 w-2.5" /> PDF Attached
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -5561,10 +5696,60 @@ export function OnboardingMaintenancePage() {
                 <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g., Attend a service" />
               </div>
               <div className="space-y-2">
-                <Label>Description</Label>
-                <Input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Short description" />
+                <Label className="text-xs font-semibold">Description</Label>
+                <Textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Short description" className="text-sm min-h-[80px]" />
               </div>
-              <Button size="sm" className="w-full" onClick={handleAddStep}>Add Step</Button>
+              
+              <div className="space-y-3 pt-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">External Link (Optional)</Label>
+                  <div className="relative">
+                    <LinkIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      value={linkUrl}
+                      onChange={(e) => setLinkUrl(e.target.value)}
+                      placeholder="https://example.com/guide"
+                      className="pl-9 text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">PDF Document (Optional)</Label>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      className="w-full h-10 gap-2 text-xs"
+                      onClick={() => document.getElementById("new-step-file")?.click()}
+                      disabled={uploading}
+                    >
+                      <FileUp className="h-4 w-4" />
+                      {fileId ? "Change PDF" : "Upload PDF"}
+                    </Button>
+                    <input
+                      id="new-step-file"
+                      type="file"
+                      accept=".pdf"
+                      className="hidden"
+                      onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
+                    />
+                    {fileId && (
+                      <Button variant="ghost" className="h-10 w-10 p-0" onClick={() => setFileId(null)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    )}
+                  </div>
+                  {fileId && (
+                    <p className="text-[10px] text-success flex items-center gap-1 font-medium">
+                      <Check className="h-3 w-3" /> PDF ready for upload
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <Button className="w-full gap-2 mt-4" onClick={handleAddStep} disabled={uploading}>
+                <Plus className="h-4 w-4" /> Add Step
+              </Button>
             </div>
           </DashboardCard>
         </div>

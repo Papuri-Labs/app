@@ -3,7 +3,7 @@ import { Layout } from "@/components/Layout";
 import { DashboardCard } from "@/components/DashboardCard";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Church, Calendar, Heart, BookOpen, Users, CheckCircle2, Image as ImageIcon } from "lucide-react";
+import { Church, Calendar, Heart, BookOpen, Users, CheckCircle2, Image as ImageIcon, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { ComingSoonDialog } from "@/components/ComingSoonDialog";
 import { GivingDialog } from "@/components/GivingDialog";
@@ -55,28 +55,38 @@ export default function NewcomerDashboard() {
           {/* Onboarding Card */}
           <DashboardCard title="Your Onboarding Journey" description={`${completedCount} of ${onboardingSteps.length} steps completed`} icon={<Heart className="h-5 w-5 text-accent" />} gradient="gradient-newcomer">
             <Progress value={progress} className="mb-4 h-2" />
-            <div className="space-y-3">
+            <div className="space-y-3 max-h-[320px] overflow-y-auto pr-2 custom-scrollbar">
               {stepsWithStatus.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No onboarding steps yet.</p>
               ) : (
                 stepsWithStatus.map((step: any) => (
                   <div
                     key={step._id}
-                    className={`flex items-start gap-3 group ${step.canComplete ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+                    className={`flex items-start gap-3 group p-2 rounded-xl transition-colors hover:bg-white/5 ${step.canComplete ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
                     onClick={() => handleCompleteStep(step._id, step.canComplete)}
                   >
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-xs font-medium text-muted-foreground min-w-[2rem]">Step {step.number}</span>
-                      <CheckCircle2 className={`h-5 w-5 transition-colors ${step.done ? "text-success" : step.canComplete ? "text-border group-hover:text-primary" : "text-muted-foreground/30"}`} />
+                      <CheckCircle2 className={`h-5 w-5 transition-colors ${step.done ? "text-success" : step.canComplete ? "text-primary group-hover:text-primary" : "text-muted-foreground/30"}`} />
                     </div>
                     <div>
                       <p className={`text-sm font-medium ${step.done ? "line-through text-muted-foreground" : ""}`}>{step.title}</p>
-                      <p className="text-xs text-muted-foreground">{step.description}</p>
+                      <p className="text-[10px] leading-tight text-muted-foreground line-clamp-2">{step.description}</p>
                     </div>
                   </div>
                 ))
               )}
             </div>
+            
+            {stepsWithStatus.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-white/10">
+                <Link to={`/${orgSlug}/onboarding`}>
+                  <Button variant="ghost" size="sm" className="w-full gap-2 text-primary hover:text-primary hover:bg-primary/10">
+                    View Full Journey <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            )}
           </DashboardCard>
 
           {/* Service Schedule */}

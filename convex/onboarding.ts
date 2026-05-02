@@ -14,8 +14,22 @@ export const listSteps = query({
             .query("onboarding_steps")
             .withIndex("by_organization", (q) => q.eq("organizationId", organizationId))
             .collect();
-        return steps.sort((a, b) => a.order - b.order);
+        
+        // Resolve storage URLs if present
+        const resolvedSteps = await Promise.all(steps.map(async (step) => {
+            let fileUrl = null;
+            if (step.fileStorageId) {
+                fileUrl = await ctx.storage.getUrl(step.fileStorageId);
+            }
+            return { ...step, fileUrl };
+        }));
+
+        return resolvedSteps.sort((a, b) => a.order - b.order);
     },
+});
+
+export const generateUploadUrl = mutation(async (ctx) => {
+  return await ctx.storage.generateUploadUrl();
 });
 
 // Get user's progress
@@ -43,8 +57,11 @@ export const completeStep = mutation({
         const step = await ctx.db.get(args.stepId);
         if (!step) throw new Error("Step not found");
 
-        // Get all steps to check order
-        const allSteps = await ctx.db.query("onboarding_steps").collect();
+        // Get all steps for this organization to check order
+        const allSteps = await ctx.db
+            .query("onboarding_steps")
+            .withIndex("by_organization", (q) => q.eq("organizationId", user.organizationId))
+            .collect();
         const sortedSteps = allSteps.sort((a, b) => a.order - b.order);
 
         // Get user's current progress
@@ -90,6 +107,8 @@ export const addStep = mutation({
     args: {
         title: v.string(),
         description: v.string(),
+        linkUrl: v.optional(v.string()),
+        fileStorageId: v.optional(v.id("_storage")),
         orgSlug: v.optional(v.string()), // Added for multi-tenant safety
     },
     handler: async (ctx, args) => {
@@ -111,6 +130,8 @@ export const addStep = mutation({
             organizationId,
             title: args.title,
             description: args.description,
+            linkUrl: args.linkUrl,
+            fileStorageId: args.fileStorageId,
             order: maxOrder + 1,
         });
     },
@@ -126,8 +147,11 @@ export const deleteStep = mutation({
         // Delete the step
         await ctx.db.delete(args.stepId);
 
-        // Get remaining steps and reorder
-        const remainingSteps = await ctx.db.query("onboarding_steps").collect();
+        // Get remaining steps for this organization and reorder
+        const remainingSteps = await ctx.db
+            .query("onboarding_steps")
+            .withIndex("by_organization", (q) => q.eq("organizationId", step.organizationId))
+            .collect();
         const sorted = remainingSteps.sort((a, b) => a.order - b.order);
 
         // Update order to be sequential
@@ -154,8 +178,11 @@ export const reorderSteps = mutation({
 
         if (oldOrder === newOrder) return;
 
-        // Get all steps
-        const allSteps = await ctx.db.query("onboarding_steps").collect();
+        // Get all steps for this organization
+        const allSteps = await ctx.db
+            .query("onboarding_steps")
+            .withIndex("by_organization", (q) => q.eq("organizationId", step.organizationId))
+            .collect();
 
         // Update orders
         for (const s of allSteps) {
@@ -183,13 +210,13 @@ export const updateStep = mutation({
         stepId: v.id("onboarding_steps"),
         title: v.string(),
         description: v.string(),
+        linkUrl: v.optional(v.string()),
+        fileStorageId: v.optional(v.id("_storage")),
     },
     handler: async (ctx, args) => {
-        await ctx.db.patch(args.stepId, {
-            title: args.title,
-            description: args.description,
-        });
-        return args.stepId;
+        const { stepId, ...updates } = args;
+        await ctx.db.patch(stepId, updates);
+        return stepId;
     },
 });
 
@@ -203,20 +230,46 @@ export const moveStep = mutation({
         const step = await ctx.db.get(args.stepId);
         if (!step) throw new Error("Step not found");
 
-        const allSteps = await ctx.db.query("onboarding_steps").collect();
+        const allSteps = await ctx.db
+            .query("onboarding_steps")
+            .withIndex("by_organization", (q) => q.eq("organizationId", step.organizationId))
+            .collect();
         const sortedSteps = allSteps.sort((a, b) => a.order - b.order);
         const currentIndex = sortedSteps.findIndex(s => s._id === args.stepId);
 
         if (args.direction === "up" && currentIndex > 0) {
             // Swap with previous step
             const prevStep = sortedSteps[currentIndex - 1];
-            await ctx.db.patch(step._id, { order: prevStep.order });
-            await ctx.db.patch(prevStep._id, { order: step.order });
+            const currentOrder = step.order;
+            const prevOrder = prevStep.order;
+            
+            // If they are the same, we need to normalize first
+            if (currentOrder === prevOrder) {
+                for (let i = 0; i < sortedSteps.length; i++) {
+                    await ctx.db.patch(sortedSteps[i]._id, { order: i });
+                }
+                // Tell user to try again after normalization
+                throw new Error("Orders normalized. Please try moving again.");
+            }
+
+            await ctx.db.patch(step._id, { order: prevOrder });
+            await ctx.db.patch(prevStep._id, { order: currentOrder });
         } else if (args.direction === "down" && currentIndex < sortedSteps.length - 1) {
             // Swap with next step
             const nextStep = sortedSteps[currentIndex + 1];
-            await ctx.db.patch(step._id, { order: nextStep.order });
-            await ctx.db.patch(nextStep._id, { order: step.order });
+            const currentOrder = step.order;
+            const nextOrder = nextStep.order;
+
+            if (currentOrder === nextOrder) {
+                for (let i = 0; i < sortedSteps.length; i++) {
+                    await ctx.db.patch(sortedSteps[i]._id, { order: i });
+                }
+                throw new Error("Orders normalized. Please try moving again.");
+            }
+
+            await ctx.db.patch(step._id, { order: nextOrder });
+            await ctx.db.patch(nextStep._id, { order: currentOrder });
         }
+        return { success: true };
     },
 });
