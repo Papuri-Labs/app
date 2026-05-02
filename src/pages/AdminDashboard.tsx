@@ -136,7 +136,6 @@ export default function AdminDashboard() {
                 ))
               )}
             </div>
-            <Button variant="outline" size="sm" className="mt-3" onClick={() => navigate(`/${orgSlug}/roles`)}>Manage Roles</Button>
           </DashboardCard>
 
 
