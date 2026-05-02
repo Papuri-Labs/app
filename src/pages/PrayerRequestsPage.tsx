@@ -30,6 +30,8 @@ import {
     DialogTitle,
     DialogFooter,
 } from "@/components/ui/dialog";
+import { PageHeader } from "@/components/PageHeader";
+
 
 interface PrayerRequest {
     _id: Id<"prayer_requests">;
@@ -362,14 +364,12 @@ export default function PrayerRequestsPage() {
     return (
         <Layout>
             <div className="space-y-6 animate-fade-in p-2 md:p-0">
-                {/* Styled Header matching RolePages */}
-                <div className="gradient-leader glass rounded-2xl p-6 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-48 h-48 rounded-full bg-success/10 -translate-y-1/2 translate-x-1/3 blur-3xl" />
-                    <h1 className="text-2xl font-bold mb-1 relative">Prayer Requests</h1>
-                    <p className="text-muted-foreground relative">
-                        Manage and pray for your community's requests.
-                    </p>
-                </div>
+                <PageHeader
+                    title="Prayer Requests"
+                    subtitle="Manage and pray for your community's requests."
+                    gradient="gradient-leader"
+                />
+
 
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 bg-background/50 p-2 rounded-xl border border-border/40">

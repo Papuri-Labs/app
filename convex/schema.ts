@@ -432,6 +432,11 @@ export default defineSchema({
     planId: v.id("bible_reading_plans"),
     dayNumber: v.number(),
     scripture: v.string(),
+    book: v.optional(v.string()), // e.g., "GEN"
+    bookName: v.optional(v.string()), // e.g., "Genesis"
+    chapter: v.optional(v.number()),
+    verseStart: v.optional(v.number()),
+    verseEnd: v.optional(v.number()),
     notes: v.optional(v.string()),
   }).index("by_plan", ["planId"])
     .index("by_plan_and_day", ["planId", "dayNumber"]),

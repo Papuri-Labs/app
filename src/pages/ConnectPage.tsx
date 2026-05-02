@@ -7,7 +7,7 @@ import { MessageSquareHeart, UserPlus, Sparkles, Church, ArrowRight, Loader2 } f
 import { useState } from "react";
 import { PrayerRequestDialog } from "@/components/PrayerRequestDialog";
 import { FirstTimerDialog } from "@/components/FirstTimerDialog";
-import { PageHeader } from "./RolePages";
+import { PageHeader } from "@/components/PageHeader";
 
 export default function ConnectPage() {
   const { orgSlug } = useParams<{ orgSlug: string }>();

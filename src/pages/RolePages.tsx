@@ -60,7 +60,7 @@ import {
   ChevronDown,
   RefreshCw,
   Search, Hash, Info, Lock,
-  ArrowRight, AlertTriangle
+  ArrowRight, AlertTriangle, Loader2
 } from "lucide-react";
 import { format } from "date-fns";
 import { useQuery, useMutation, useAction } from "convex/react";
@@ -76,30 +76,9 @@ import { GalleryPage } from "./GalleryPage";
 
 export { GalleryPage };
 
-export function PageHeader({
-  title,
-  subtitle,
-  gradient,
-}: {
-  title: string;
-  subtitle: string;
-  gradient: "gradient-newcomer" | "gradient-member" | "gradient-leader" | "gradient-admin";
-}) {
-  const glowMap: Record<string, string> = {
-    "gradient-newcomer": "bg-accent/10",
-    "gradient-member": "bg-primary/10",
-    "gradient-leader": "bg-success/8",
-    "gradient-admin": "bg-primary/6",
-  };
+import { PageHeader } from "@/components/PageHeader";
+import { BIBLE_BOOKS, BIBLE_TRANSLATIONS, fetchChapter } from "@/lib/bible";
 
-  return (
-    <div className={`${gradient} glass rounded-2xl p-4 sm:p-6 relative overflow-hidden`}>
-      <div className={`absolute top-0 right-0 w-48 h-48 rounded-full ${glowMap[gradient]} -translate-y-1/2 translate-x-1/3 blur-3xl`} />
-      <h1 className="text-xl sm:text-2xl font-bold mb-1 relative">{title}</h1>
-      <p className="text-muted-foreground relative">{subtitle}</p>
-    </div>
-  );
-}
 
 
 
@@ -791,31 +770,9 @@ export function BibleReadingPage() {
   const [reflectionText, setReflectionText] = useState("");
   const [activeReflectAssignmentId, setActiveReflectAssignmentId] = useState<string | null>(null);
   const [selectedPlanId, setSelectedPlanId] = useState<string>("");
-
-  if (activePlansData === undefined) return <div className="p-8 text-center text-muted-foreground animate-pulse">Loading reading plans...</div>;
-
-  if (activePlansData.length === 0) {
-    return (
-      <Layout>
-        <div className="space-y-6 animate-fade-in">
-          <PageHeader
-            title="Bible Reading"
-            subtitle="Keep your daily rhythm of scripture."
-            gradient="gradient-member"
-          />
-          <div className="flex flex-col items-center justify-center py-20 text-center glass rounded-3xl border border-primary/5">
-            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-6">
-              <BookOpen className="h-8 w-8 text-primary opacity-50" />
-            </div>
-            <h3 className="text-lg font-semibold">No active plans found</h3>
-            <p className="text-sm text-muted-foreground mt-2 max-w-[300px]">
-              You haven't been assigned any reading plans yet. Contact your ministry leader to get started!
-            </p>
-          </div>
-        </div>
-      </Layout>
-    );
-  }
+  const [translation, setTranslation] = useState("tgl_ulb");
+  const [bibleText, setBibleText] = useState<any>(null);
+  const [isLoadingVerse, setIsLoadingVerse] = useState(false);
 
   const handleMarkAsReadSubmit = async () => {
     if (isMarking || reflectionModalDay === null || !activeReflectAssignmentId) return;
@@ -842,9 +799,80 @@ export function BibleReadingPage() {
     setActiveReflectAssignmentId(assignmentId);
     setReflectionText("");
   };
+
   const currentTabValue = selectedPlanId || activePlansData?.[0]?.plan?._id || "";
-  const currentPlanIndex = activePlansData?.findIndex((p: any) => p.plan?._id === currentTabValue);
+  const currentPlanIndex = activePlansData?.findIndex((p: any) => p.plan?._id === currentTabValue) ?? -1;
   const selectedPlanData = activePlansData?.[currentPlanIndex !== -1 ? currentPlanIndex : 0];
+
+  const todayReadingData = selectedPlanData?.readings.find((r: any) => {
+    const start = new Date(selectedPlanData.assignment.startDate);
+    const now = new Date();
+    start.setHours(0, 0, 0, 0);
+    now.setHours(0, 0, 0, 0);
+    const diffDays = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    return r.dayNumber === (diffDays + 1);
+  });
+
+  useEffect(() => {
+    async function loadVerse() {
+      if (todayReadingData?.book && todayReadingData?.chapter) {
+        setIsLoadingVerse(true);
+        const data = await fetchChapter(translation, todayReadingData.book, todayReadingData.chapter);
+        if (data && data.chapter && data.chapter.content) {
+          const verses = data.chapter.content
+            .filter((c: any) => c.type === "verse")
+            .map((v: any) => ({
+              number: v.number,
+              content: v.content
+                .filter((item: any) => typeof item === "string")
+                .join("")
+            }));
+
+          if (todayReadingData.verseStart) {
+            const end = todayReadingData.verseEnd || todayReadingData.verseStart;
+            const filtered = verses.filter((v: any) => {
+              const vNum = parseInt(v.number);
+              return vNum >= todayReadingData.verseStart && vNum <= end;
+            });
+            setBibleText(filtered);
+          } else {
+            setBibleText(verses);
+          }
+        } else {
+          setBibleText(null);
+        }
+        setIsLoadingVerse(false);
+      } else {
+        setBibleText(null);
+      }
+    }
+    loadVerse();
+  }, [todayReadingData?.book, todayReadingData?.chapter, todayReadingData?.verseStart, todayReadingData?.verseEnd, translation]);
+
+  if (activePlansData === undefined) return <div className="p-8 text-center text-muted-foreground animate-pulse">Loading reading plans...</div>;
+
+  if (activePlansData.length === 0) {
+    return (
+      <Layout>
+        <div className="space-y-6 animate-fade-in">
+          <PageHeader
+            title="Bible Reading"
+            subtitle="Keep your daily rhythm of scripture."
+            gradient="gradient-member"
+          />
+          <div className="flex flex-col items-center justify-center py-20 text-center glass rounded-3xl border border-primary/5">
+            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-6">
+              <BookOpen className="h-8 w-8 text-primary opacity-50" />
+            </div>
+            <h3 className="text-lg font-semibold">No active plans found</h3>
+            <p className="text-sm text-muted-foreground mt-2 max-w-[300px]">
+              You haven't been assigned any reading plans yet. Contact your ministry leader to get started!
+            </p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   let displayDay = 1;
   let displayStreak = 0;
@@ -963,12 +991,56 @@ export function BibleReadingPage() {
                         <div className="space-y-6 p-2">
                           {todayReading ? (
                             <>
-                              <div className="p-6 rounded-2xl bg-primary/5 border border-primary/10 shadow-sm">
-                                <h3 className="text-xl font-bold text-primary mb-2">{todayReading.scripture}</h3>
+                              <div className="p-6 rounded-2xl bg-primary/5 border border-primary/10 shadow-sm space-y-4">
+                                <div className="flex items-center justify-between border-b border-primary/10 pb-3">
+                                  <h3 className="text-xl font-extrabold text-primary">{todayReading.bookName} {todayReading.chapter}{todayReading.verseStart ? `:${todayReading.verseStart}${todayReading.verseEnd ? `-${todayReading.verseEnd}` : ""}` : ""}</h3>
+                                  <Select value={translation} onValueChange={setTranslation}>
+                                    <SelectTrigger className="h-7 w-[130px] text-[10px] bg-background/50 border-primary/20">
+                                      <SelectValue placeholder="Translation" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {BIBLE_TRANSLATIONS.map(t => (
+                                        <SelectItem key={t.id} value={t.id} className="text-xs">{t.name}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                
+                                <div className="min-h-[100px] flex flex-col justify-center">
+                                  {isLoadingVerse ? (
+                                    <div className="flex flex-col items-center justify-center py-10 gap-3">
+                                      <Loader2 className="h-8 w-8 animate-spin text-primary/40" />
+                                      <p className="text-xs text-muted-foreground animate-pulse">Fetching scripture...</p>
+                                    </div>
+                                  ) : bibleText ? (
+                                    <div className="space-y-4">
+                                      <div className="text-base leading-relaxed text-foreground/90 italic font-serif">
+                                        {bibleText.map((v: any, i: number) => (
+                                          <span key={i} className="mr-2">
+                                            <sup className="text-xs font-bold text-primary mr-1">{v.number}</sup>
+                                            {v.content}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ) : todayReading ? (
+                                    <div className="text-center py-6">
+                                      <h3 className="text-xl font-bold text-primary">{todayReading.scripture}</h3>
+                                    </div>
+                                  ) : (
+                                    <p className="text-sm font-medium text-muted-foreground italic text-center py-6">
+                                      Unable to load verse text.
+                                    </p>
+                                  )}
+                                </div>
+
                                 {todayReading.notes && (
-                                  <p className="text-sm text-muted-foreground italic border-l-2 border-primary/20 pl-4 py-1">
-                                    "{todayReading.notes}"
-                                  </p>
+                                  <div className="pt-4 border-t border-primary/5">
+                                    <p className="text-xs font-bold uppercase tracking-widest text-primary/40 mb-2">Leader's Note</p>
+                                    <p className="text-sm text-muted-foreground italic border-l-2 border-primary/20 pl-4 py-1">
+                                      "{todayReading.notes}"
+                                    </p>
+                                  </div>
                                 )}
                               </div>
                               
@@ -1524,7 +1596,16 @@ export function ManageBibleReadingPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
   const [newPlan, setNewPlan] = useState({ title: "", description: "", duration: 1 });
-  const [readings, setReadings] = useState<{ dayNumber: number; scripture: string; notes: string }[]>([]);
+  const [readings, setReadings] = useState<{ 
+    dayNumber: number; 
+    scripture: string; 
+    book?: string; 
+    bookName?: string;
+    chapter?: number; 
+    verseStart?: number; 
+    verseEnd?: number; 
+    notes: string 
+  }[]>([]);
   const [planToDelete, setPlanToDelete] = useState<string | null>(null);
   const [isDeletingPlan, setIsDeletingPlan] = useState(false);
 
@@ -1639,6 +1720,9 @@ export function ManageBibleReadingPage() {
       const additional = Array.from({ length: newPlan.duration - currentCount }, (_, i) => ({
         dayNumber: currentCount + i + 1,
         scripture: "",
+        book: "GEN",
+        bookName: "Genesis",
+        chapter: 1,
         notes: ""
       }));
       setReadings([...readings, ...additional]);
@@ -1659,6 +1743,11 @@ export function ManageBibleReadingPage() {
       setReadings(planDetailsToEdit.readings.map(r => ({
         dayNumber: r.dayNumber,
         scripture: r.scripture,
+        book: r.book || "GEN",
+        bookName: r.bookName || "Genesis",
+        chapter: r.chapter || 1,
+        verseStart: r.verseStart,
+        verseEnd: r.verseEnd,
         notes: r.notes || ""
       })));
     }
@@ -2076,18 +2165,98 @@ export function ManageBibleReadingPage() {
               <Label className="text-primary font-bold">Daily Readings</Label>
               <div className="space-y-3">
                 {readings.map((r, idx) => (
-                  <div key={idx} className="flex flex-col sm:flex-row items-start sm:items-center gap-2 p-3 rounded-lg bg-muted/20 border border-primary/5">
-                    <span className="text-xs font-bold w-12 text-primary">Day {r.dayNumber}</span>
-                    <Input 
-                      placeholder="Scripture reference (e.g. Genesis 1-2)" 
-                      value={r.scripture} 
-                      className="flex-1 h-9"
-                      onChange={e => {
-                        const nextReadings = [...readings];
-                        nextReadings[idx].scripture = e.target.value;
-                        setReadings(nextReadings);
-                      }}
-                    />
+                  <div key={idx} className="flex flex-col gap-3 p-4 rounded-xl bg-muted/20 border border-primary/5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-primary px-2 py-1 rounded-md bg-primary/10">Day {r.dayNumber}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Preview:</span>
+                        <span className="text-xs font-medium text-primary">
+                          {r.bookName} {r.chapter}{r.verseStart ? `:${r.verseStart}${r.verseEnd ? `-${r.verseEnd}` : ""}` : ""}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                      <div className="sm:col-span-5">
+                        <Label className="text-[10px] uppercase mb-1 block">Book</Label>
+                        <Select 
+                          value={r.book} 
+                          onValueChange={val => {
+                            const nextReadings = [...readings];
+                            const book = BIBLE_BOOKS.find(b => b.id === val);
+                            nextReadings[idx].book = val;
+                            nextReadings[idx].bookName = book?.name;
+                            // Update the combined scripture string for backward compatibility
+                            nextReadings[idx].scripture = `${book?.name} ${r.chapter || 1}${r.verseStart ? `:${r.verseStart}${r.verseEnd ? `-${r.verseEnd}` : ""}` : ""}`;
+                            setReadings(nextReadings);
+                          }}
+                        >
+                          <SelectTrigger className="h-9 text-xs">
+                            <SelectValue placeholder="Select Book" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {BIBLE_BOOKS.map(book => (
+                              <SelectItem key={book.id} value={book.id}>{book.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="sm:col-span-3">
+                        <Label className="text-[10px] uppercase mb-1 block">Chapter</Label>
+                        <Input 
+                          type="number" 
+                          min="1"
+                          placeholder="Ch" 
+                          value={r.chapter || ""} 
+                          className="h-9 text-xs"
+                          onChange={e => {
+                            const nextReadings = [...readings];
+                            const val = parseInt(e.target.value) || 1;
+                            nextReadings[idx].chapter = val;
+                            nextReadings[idx].scripture = `${r.bookName} ${val}${r.verseStart ? `:${r.verseStart}${r.verseEnd ? `-${r.verseEnd}` : ""}` : ""}`;
+                            setReadings(nextReadings);
+                          }}
+                        />
+                      </div>
+
+                      <div className="sm:col-span-4 flex gap-2">
+                        <div className="flex-1">
+                          <Label className="text-[10px] uppercase mb-1 block">Verse Start</Label>
+                          <Input 
+                            type="number" 
+                            min="1"
+                            placeholder="Start" 
+                            value={r.verseStart || ""} 
+                            className="h-9 text-xs"
+                            onChange={e => {
+                              const nextReadings = [...readings];
+                              const val = parseInt(e.target.value) || undefined;
+                              nextReadings[idx].verseStart = val;
+                              nextReadings[idx].scripture = `${r.bookName} ${r.chapter}${val ? `:${val}${r.verseEnd ? `-${r.verseEnd}` : ""}` : ""}`;
+                              setReadings(nextReadings);
+                            }}
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <Label className="text-[10px] uppercase mb-1 block">Verse End</Label>
+                          <Input 
+                            type="number" 
+                            min="1"
+                            placeholder="End" 
+                            value={r.verseEnd || ""} 
+                            className="h-9 text-xs"
+                            onChange={e => {
+                              const nextReadings = [...readings];
+                              const val = parseInt(e.target.value) || undefined;
+                              nextReadings[idx].verseEnd = val;
+                              nextReadings[idx].scripture = `${r.bookName} ${r.chapter}${r.verseStart ? `:${r.verseStart}${val ? `-${val}` : ""}` : ""}`;
+                              setReadings(nextReadings);
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
