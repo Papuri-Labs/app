@@ -77,10 +77,17 @@ export const BIBLE_TRANSLATIONS = [
 
 export async function fetchChapter(translation: string, book: string, chapter: number) {
   try {
-    const response = await fetch(`https://bible.helloao.org/api/${translation}/${book}/${chapter}.json`);
-    if (!response.ok) throw new Error(`Failed to fetch chapter: ${response.status}`);
+    const url = `https://bible.helloao.org/api/${translation}/${book}/${chapter}.json`;
+    console.log("Fetching Bible chapter:", url);
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.error(`Failed to fetch chapter: ${response.status} ${response.statusText} for URL: ${url}`);
+      throw new Error(`Failed to fetch chapter: ${response.status}`);
+    }
     const contentType = response.headers.get("content-type");
     if (!contentType || !contentType.includes("application/json")) {
+      const text = await response.text();
+      console.error("Non-JSON response text:", text.substring(0, 200));
       throw new Error("API returned non-JSON response (likely an error page)");
     }
     return await response.json();
