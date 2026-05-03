@@ -48,7 +48,7 @@ export function NotificationBell() {
                 type: "Event",
                 title: e.title,
                 date: e._creationTime,
-                link: "/events"
+                link: `/${user?.organizationSlug || "my-church"}/events`
             })),
         ...announcements
             .filter(a => !a.status || a.status === "Published")
@@ -57,7 +57,7 @@ export function NotificationBell() {
                 type: "Announcement",
                 title: a.title,
                 date: a._creationTime,
-                link: "/announcements"
+                link: `/${user?.organizationSlug || "my-church"}/announcements`
             })),
         ...bulletins
             .filter(b => !b.status || b.status === "Published")
@@ -66,7 +66,7 @@ export function NotificationBell() {
                 type: "Bulletin",
                 title: b.title,
                 date: b._creationTime,
-                link: "/bulletins"
+                link: `/${user?.organizationSlug || "my-church"}/bulletins`
             })),
         ...assignments
             .map((a: any) => ({
@@ -74,7 +74,7 @@ export function NotificationBell() {
                 type: "Assignment",
                 title: `${a.title} · ${a.ministryName}`,
                 date: a.createdAt ?? a._creationTime,
-                link: "/assignments",
+                link: `/${user?.organizationSlug || "my-church"}/assignments`,
                 status: a.status,
             })),
         ...followUpAssignments
@@ -84,14 +84,14 @@ export function NotificationBell() {
                 type: "Follow-Up",
                 title: `Follow up with ${a.memberName}`,
                 date: a.createdAt ?? a._creationTime,
-                link: "/follow-ups",
+                link: `/${user?.organizationSlug || "my-church"}/follow-ups`,
             })),
         ...bibleReadingPlans.map((br: any) => ({
             id: `br-${br.assignment._id}`,
             type: "Bible Reading",
             title: `New plan: ${br.plan?.title}`,
             date: br.assignment.createdAt ?? br.assignment._creationTime,
-            link: "/bible-reading",
+            link: `/${user?.organizationSlug || "my-church"}/bible-reading`,
         })),
     ].sort((a, b) => b.date - a.date)
         .slice(0, 15);
