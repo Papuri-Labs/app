@@ -99,8 +99,8 @@ export function Layout({ children }: { children: ReactNode }) {
             <header className="h-12 sm:h-14 flex shrink-0 items-center border-b px-3 sm:px-4 gap-2 sm:gap-3 glass-strong sticky top-0 z-10">
               <SidebarLoggingTrigger />
               <div className="flex-1" />
-              {(viewMode === "member" || viewMode === "newcomer") && <NotificationBell />}
-              {(viewMode === "member" || viewMode === "newcomer") && (
+              {user?.role !== "admin" && (viewMode === "member" || viewMode === "newcomer") && <NotificationBell />}
+              {user?.role !== "admin" && (viewMode === "member" || viewMode === "newcomer") && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -112,7 +112,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 </Button>
               )}
               {/* Mobile Icon Only */}
-              {(viewMode === "member" || viewMode === "newcomer") && (
+              {user?.role !== "admin" && (viewMode === "member" || viewMode === "newcomer") && (
                 <Button
                   variant="ghost"
                   size="icon"
