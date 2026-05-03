@@ -2645,7 +2645,7 @@ export function ManageBulletinsPage() {
               </Button>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-3 max-h-[450px] overflow-y-auto pr-2">
               {bulletins.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No bulletins created yet.</p>
               ) : (
@@ -2691,7 +2691,7 @@ export function ManageBulletinsPage() {
               </Button>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-3 max-h-[450px] overflow-y-auto pr-2">
               {announcements.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No announcements yet.</p>
               ) : (
@@ -4928,7 +4928,7 @@ export function SettingsPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           <DashboardCard title="Branding" icon={<Sparkles className="h-5 w-5 text-primary" />} gradient="gradient-admin">
-            <div className="space-y-4">
+            <div className="space-y-4 h-[550px] overflow-y-auto pr-2">
               <div className="space-y-2">
                 <Label>Church / Organization Name</Label>
                 <Input
@@ -5054,7 +5054,7 @@ export function SettingsPage() {
           </DashboardCard>
 
           <DashboardCard title="About Church Content" icon={<Church className="h-5 w-5 text-primary" />} gradient="gradient-admin">
-            <div className="space-y-4">
+            <div className="space-y-4 h-[550px] overflow-y-auto pr-2">
               <div className="space-y-2">
                 <Label>Our Vision</Label>
                 <Textarea
@@ -5077,7 +5077,7 @@ export function SettingsPage() {
           </DashboardCard>
 
           <DashboardCard title="Social Links" icon={<Users className="h-5 w-5 text-primary" />} gradient="gradient-admin">
-            <div className="space-y-4">
+            <div className="space-y-4 h-[550px] overflow-y-auto pr-2">
               <div className="space-y-2">
                 <Label>Facebook URL</Label>
                 <Input
@@ -5116,7 +5116,7 @@ export function SettingsPage() {
           </DashboardCard>
 
           <DashboardCard title="Finance Configuration" icon={<Heart className="h-5 w-5 text-primary" />} gradient="gradient-admin">
-            <div className="space-y-4">
+            <div className="space-y-4 h-[550px] overflow-y-auto pr-2">
               <div className="space-y-2">
                 <Label>Giving Types (Comma separated)</Label>
                 <Textarea
@@ -5135,7 +5135,7 @@ export function SettingsPage() {
           </DashboardCard>
 
           <DashboardCard title="Attendance Parameters" icon={<ClipboardList className="h-5 w-5 text-primary" />} gradient="gradient-admin">
-            <div className="space-y-3">
+            <div className="space-y-3 h-[550px] overflow-y-auto pr-2">
               <div className="space-y-2">
                 <Label>Absences before inactive</Label>
                 <Input
@@ -5167,7 +5167,7 @@ export function SettingsPage() {
           </DashboardCard>
 
           <DashboardCard title="Module Management" icon={<Plus className="h-5 w-5 text-primary" />} gradient="gradient-admin">
-            <div className="space-y-4">
+            <div className="space-y-4 h-[550px] overflow-y-auto pr-2">
               <p className="text-xs text-muted-foreground mb-2">Enable or disable specific features for your organization.</p>
               <div className="grid grid-cols-1 gap-4">
                 {[
@@ -5349,7 +5349,7 @@ export function MinistriesPage() {
                 <Building2 className="h-4 w-4 text-primary" /> Active Ministries
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-3 max-h-[450px] overflow-y-auto pr-2">
               {ministries.map((ministry) => (
                 <div key={ministry._id}>
                   {editingId === ministry._id ? (
@@ -5554,7 +5554,7 @@ export function OnboardingMaintenancePage() {
             <CardHeader>
               <CardTitle className="text-base font-semibold">Onboarding Steps</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-3 max-h-[450px] overflow-y-auto pr-2">
               {steps.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No steps yet.</p>
               ) : (
@@ -5852,7 +5852,7 @@ export function ScheduleMaintenancePage() {
             <CardHeader>
               <CardTitle className="text-base font-semibold">Service Schedule</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-3 max-h-[450px] overflow-y-auto pr-2">
               {services.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No services yet.</p>
               ) : (
@@ -6064,7 +6064,7 @@ export function GivingMaintenancePage() {
             <CardHeader>
               <CardTitle className="text-base font-semibold">Giving Options</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-3 max-h-[450px] overflow-y-auto pr-2">
               {givingOptions.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No giving options yet.</p>
               ) : (
