@@ -9,6 +9,7 @@ const Index = () => {
   const { orgSlug } = useParams();
   const urlSlug = orgSlug || "my-church";
   const toastFired = useRef(false);
+  const isMultiTenant = import.meta.env.VITE_IS_MULTI_TENANT !== "N";
 
   useEffect(() => {
     if (!isLoading && isAuthenticated && user && !toastFired.current) {
@@ -31,6 +32,9 @@ const Index = () => {
   if (isLoading) return null;
 
   if (isAuthenticated && user) {
+    if (!isMultiTenant) {
+      return <Navigate to="/dashboard" replace />;
+    }
     // Always redirect to the user's REAL org slug from Convex, not the URL param
     const realSlug = user.organizationSlug || urlSlug;
     return <Navigate to={`/${realSlug}/dashboard`} replace />;

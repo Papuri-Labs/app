@@ -47,6 +47,8 @@ export function Layout({ children }: { children: ReactNode }) {
 
   // Home-Church Enforcement: Redirect to home slug if mismatch or missing
   useEffect(() => {
+    if (import.meta.env.VITE_IS_MULTI_TENANT === "N") return;
+    
     if (user) {
       const parts = location.pathname.split("/");
       const currentSlug = parts[1];

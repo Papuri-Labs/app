@@ -79,6 +79,8 @@ export const RESERVED_ROUTE_KEYWORDS = [
 
 /** Extract the org slug from the current URL, falling back to "my-church" */
 function getOrgSlugFromUrl(): string {
+  if (import.meta.env.VITE_IS_MULTI_TENANT === "N") return "default";
+
   const params = new URLSearchParams(window.location.search);
 
   // Handle ?org=<slug> — set by Login.tsx's forceRedirectUrl on /auth/redirect
@@ -100,6 +102,8 @@ function getOrgSlugFromUrl(): string {
 
 /** Read slug from Clerk's redirect_url param or localStorage */
 export function getPersistedOrgSlug(): string {
+  if (import.meta.env.VITE_IS_MULTI_TENANT === "N") return "default";
+
   // 1. Primary Source of Truth: Active Session Storage
   // This is set the moment a user explicitly visits a church's landing or login page.
   const storedValue = localStorage.getItem("orgSlug");
@@ -280,7 +284,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = async () => {
     // Capture current orgSlug before signing out so we redirect to the right login page
     const slug = getOrgSlugFromUrl();
-    await signOut({ redirectUrl: `/${slug}/login` });
+    const isMultiTenant = import.meta.env.VITE_IS_MULTI_TENANT !== "N";
+    await signOut({ redirectUrl: isMultiTenant ? `/${slug}/login` : `/login` });
   };
 
   const switchRole = (role: UserRole) => {

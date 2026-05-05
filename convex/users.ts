@@ -75,12 +75,19 @@ export const syncUser = mutation({
         const organizationId = await getOrCreateOrganization(ctx, args.orgSlug);
         const org = await ctx.db.get(organizationId);
 
-        const existingUser = await ctx.db
+        let existingUser = await ctx.db
             .query("users")
             .withIndex("by_org_and_clerk", (q) => 
                 q.eq("organizationId", organizationId).eq("userId", args.userId)
             )
             .first();
+
+        if (!existingUser) {
+            existingUser = await ctx.db
+                .query("users")
+                .withIndex("by_clerk_id", (q) => q.eq("userId", args.userId))
+                .first();
+        }
 
         // Validation for new joiners
         if (!existingUser && org?.joinCode) {

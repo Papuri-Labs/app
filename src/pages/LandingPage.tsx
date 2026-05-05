@@ -86,6 +86,7 @@ export default function LandingPage() {
   
   const [searchQuery, setSearchQuery] = useState("");
   const organizations = useQuery(api.organizations.listPublic) || [];
+  const isMultiTenant = import.meta.env.VITE_IS_MULTI_TENANT !== "N";
 
   const filteredOrgs = organizations
     .filter((org) => 
@@ -162,65 +163,82 @@ export default function LandingPage() {
 
           {/* CTAs removed per user request */}
 
-          {/* Quick Find Church Selector */}
-          <div className="relative z-20 mt-12 w-full max-w-2xl bg-[#0a0f1e]/40 p-6 sm:p-8 rounded-3xl border border-white/5 backdrop-blur-xl">
-            <p className="text-white/40 text-xs font-bold tracking-widest uppercase mb-6 flex items-center justify-center gap-2">
-              <Building className="h-3 w-3" />
-              Discover Your Community
-            </p>
+          {/* Quick Find Church Selector or Login CTAs */}
+          {isMultiTenant ? (
+            <div className="relative z-20 mt-12 w-full max-w-2xl bg-[#0a0f1e]/40 p-6 sm:p-8 rounded-3xl border border-white/5 backdrop-blur-xl">
+              <p className="text-white/40 text-xs font-bold tracking-widest uppercase mb-6 flex items-center justify-center gap-2">
+                <Building className="h-3 w-3" />
+                Discover Your Community
+              </p>
 
-            <div className="relative mb-6">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-4 w-4 text-white/40" />
-              </div>
-              <input
-                type="text"
-                placeholder="Search for your church..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-sm"
-              />
-            </div>
-
-            {organizations.length === 0 ? (
-                <div className="text-white/30 text-sm animate-pulse text-center">Loading churches...</div>
-            ) : filteredOrgs.length === 0 ? (
-                <div className="text-white/40 text-sm text-center py-4">No churches found.</div>
-            ) : (
-                <div className="flex flex-col gap-3">
-                  {filteredOrgs.map((org) => (
-                    <button
-                      key={org._id}
-                      onClick={() => navigate(`/${org.slug}/login`)}
-                      className={`flex items-center gap-4 px-5 py-4 w-full rounded-2xl transition-all ${
-                        slug === org.slug 
-                          ? "bg-blue-500/10 border border-blue-500/30 shadow-[0_0_20px_rgba(59,130,246,0.15)] ring-1 ring-blue-500/50" 
-                          : "bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/15"
-                      }`}
-                    >
-                      <div className={`h-10 w-10 rounded-xl flex items-center justify-center shadow-lg shrink-0 ${
-                        slug === org.slug 
-                          ? "bg-gradient-to-br from-blue-500 to-blue-600" 
-                          : "bg-gradient-to-br from-white/10 to-white/5"
-                      }`}>
-                        <Church className={`h-5 w-5 ${slug === org.slug ? "text-white" : "text-white/50"}`} />
-                      </div>
-                      <span className={`text-base font-semibold tracking-wide truncate ${
-                        slug === org.slug ? "text-white" : "text-white/70"
-                      }`}>
-                        {org.name}
-                      </span>
-                      <ChevronRight className="h-5 w-5 ml-auto text-white/20 shrink-0" />
-                    </button>
-                  ))}
-                  {organizations.length > 5 && searchQuery === "" && (
-                    <p className="text-xs text-center text-white/30 mt-2">
-                      Use the search bar to find more communities.
-                    </p>
-                  )}
+              <div className="relative mb-6">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="h-4 w-4 text-white/40" />
                 </div>
-            )}
-          </div>
+                <input
+                  type="text"
+                  placeholder="Search for your church..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-sm"
+                />
+              </div>
+
+              {organizations.length === 0 ? (
+                  <div className="text-white/30 text-sm animate-pulse text-center">Loading churches...</div>
+              ) : filteredOrgs.length === 0 ? (
+                  <div className="text-white/40 text-sm text-center py-4">No churches found.</div>
+              ) : (
+                  <div className="flex flex-col gap-3">
+                    {filteredOrgs.map((org) => (
+                      <button
+                        key={org._id}
+                        onClick={() => navigate(`/${org.slug}/login`)}
+                        className={`flex items-center gap-4 px-5 py-4 w-full rounded-2xl transition-all ${
+                          slug === org.slug 
+                            ? "bg-blue-500/10 border border-blue-500/30 shadow-[0_0_20px_rgba(59,130,246,0.15)] ring-1 ring-blue-500/50" 
+                            : "bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/15"
+                        }`}
+                      >
+                        <div className={`h-10 w-10 rounded-xl flex items-center justify-center shadow-lg shrink-0 ${
+                          slug === org.slug 
+                            ? "bg-gradient-to-br from-blue-500 to-blue-600" 
+                            : "bg-gradient-to-br from-white/10 to-white/5"
+                        }`}>
+                          <Church className={`h-5 w-5 ${slug === org.slug ? "text-white" : "text-white/50"}`} />
+                        </div>
+                        <span className={`text-base font-semibold tracking-wide truncate ${
+                          slug === org.slug ? "text-white" : "text-white/70"
+                        }`}>
+                          {org.name}
+                        </span>
+                        <ChevronRight className="h-5 w-5 ml-auto text-white/20 shrink-0" />
+                      </button>
+                    ))}
+                    {organizations.length > 5 && searchQuery === "" && (
+                      <p className="text-xs text-center text-white/30 mt-2">
+                        Use the search bar to find more communities.
+                      </p>
+                    )}
+                  </div>
+              )}
+            </div>
+          ) : (
+            <div className="relative z-20 mt-12 flex items-center justify-center gap-4">
+              <button 
+                onClick={() => navigate('/login')}
+                className="px-8 py-4 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold tracking-wide shadow-lg shadow-blue-500/20 hover:-translate-y-1 hover:shadow-blue-500/40 transition-all flex items-center gap-2"
+              >
+                Sign In <ArrowRight className="h-4 w-4" />
+              </button>
+              <button 
+                onClick={() => navigate('/signup')}
+                className="px-8 py-4 rounded-xl bg-white/5 border border-white/10 text-white font-bold tracking-wide hover:bg-white/10 hover:-translate-y-1 transition-all"
+              >
+                Create Account
+              </button>
+            </div>
+          )}
 
           {/* Hero Image */}
           <div className="relative mt-16 w-full max-w-3xl">
